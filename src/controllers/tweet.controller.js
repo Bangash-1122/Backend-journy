@@ -111,7 +111,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
 
     const user = await User.findById(req.user?._id)
     if (!user) {
-        throw new ApiError(404, "User not found")
+        throw new ApiError(404, "User not Found")
     }
 
     await tweet.deleteOne()
