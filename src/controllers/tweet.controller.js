@@ -33,10 +33,10 @@ const createTweet = asyncHandler(async (req, res) => {
 
 // GET USER TWEETS WITH POPULATED USER INFO
 const getUserTweets = asyncHandler(async (req, res) => {
-    const userId = req.user?._id
+    const { userId } = req.params
 
-    if (!userId) {
-        throw new ApiError(401, "Unauthorized")
+    if (!userId || !isValidObjectId(userId)) {
+        throw new ApiError(400, "Invalid user ID")
     }
 
     // Check user existence
@@ -102,7 +102,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
 
     const tweet = await Tweet.findById(tweetId)
     if (!tweet) {
-        throw new ApiError(400, "Tweet not found")
+        throw new ApiError(404, "Tweet not found")
     }
 
     if (tweet.owner.toString() !== req.user?._id.toString()) {
@@ -111,7 +111,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
 
     const user = await User.findById(req.user?._id)
     if (!user) {
-        throw new ApiError(400, "User not found")
+        throw new ApiError(404, "User not found")
     }
 
     await tweet.deleteOne()

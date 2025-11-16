@@ -15,7 +15,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid channel ID")
     }
 
-    const channelObjectId = mongoose.Types.ObjectId(channelId)
+    const channelObjectId = new mongoose.Types.ObjectId(channelId)
 
     const [
         totalVideos,
@@ -24,13 +24,13 @@ const getChannelStats = asyncHandler(async (req, res) => {
         totalLikes
     ] = await Promise.all([
         // Fetch total videos uploaded by the channel
-        Video.countDocuments({ uploaderId: channelObjectId }),
+        Video.countDocuments({ owner: channelObjectId }),
 
         // Total views on all videos of this channel
         Video.aggregate([
             {
                 $match: {
-                    uploaderId: channelObjectId
+                    owner: channelObjectId
                 }
             },
             {
@@ -87,10 +87,10 @@ const getChannelVideos = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid channel ID")
     }
 
-    const channelObjectId = mongoose.Types.ObjectId(channelId)
+    const channelObjectId = new mongoose.Types.ObjectId(channelId)
 
     const videos = await Video
-        .find({ uploaderId: channelObjectId })
+        .find({ owner: channelObjectId })
         .sort({ createdAt: -1 }) // newest first (optional but recommended)
 
     return res.status(200).json(
