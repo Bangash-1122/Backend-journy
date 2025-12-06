@@ -40,37 +40,4 @@ app.use("/api/v1/dashboard", dashboardRouter)
 
 // http://localhost:8000/api/v1/users/register
 
-// 404 handler for undefined routes
-app.use((req, res, next) => {
-    return res.status(404).json({
-        statusCode: 404,
-        success: false,
-        message: `Route ${req.originalUrl} not found`,
-        errors: [],
-        data: null
-    });
-});
-
-// Error handling middleware (must be last)
-app.use((err, req, res, next) => {
-    if (err instanceof ApiError) {
-        return res.status(err.statusCode).json({
-            statusCode: err.statusCode,
-            success: false,
-            message: err.message,
-            errors: err.errors,
-            data: null
-        });
-    }
-
-    // Handle other errors
-    return res.status(500).json({
-        statusCode: 500,
-        success: false,
-        message: err.message || "Internal Server Error",
-        errors: [],
-        data: null
-    });
-});
-
 export { app }

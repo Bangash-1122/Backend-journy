@@ -253,7 +253,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     const user = await User.findByIdAndUpdate(req.user?._id,
         {
             $set:{
-                fullName,
+                fullName: fullName,
                 email: email
             }
         },
@@ -434,7 +434,6 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user[0].watchHistory, "Watch history fetched successfully"))
 
 })
-
 
 
 export { 
