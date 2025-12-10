@@ -284,7 +284,13 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
             }
         },
         {new: true}
-    ).select("-password")
+    ).select("-password");
+
+    const oldImageDeleteResult = await deleteFromCloudinary(user?.avatar.url)
+
+    if (!oldImageDeleteResult?.result === "ok") {
+        throw new ApiError(500, "Error while deleting old avatar image");
+    }
     
      return res.status(200)
     .json(new ApiResponse(200, user, "Avatar image updated successfully"))
