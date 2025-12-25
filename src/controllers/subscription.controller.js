@@ -10,42 +10,41 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     const { channelId } = req.params
     // TODO: toggle subscription
     
-      if (!isValidObjectId(channelId)) {
-          throw new ApiError(400, "Invalid subscription channel ID")
-      }
+        if (!isValidObjectId(channelId)) {
+            throw new ApiError(400, "Invalid subscription channel ID")
+        }
 
     const channelUser = await User.findById(channelId)
 
-      if (!channelUser) {
-         throw new ApiError(404, "Channel user not found")
-      }
+        if (!channelUser) {
+            throw new ApiError(404, "Channel user not found")
+        }
 
-       
-     const existingSubscription = await Subscription.findOne(
+        const existingSubscription = await Subscription.findOne(
         {
             user: req.user?._id, channel: channelId 
         }
     ) 
      
-      if (existingSubscription){
-         await existingSubscription.deleteOne()
+        if (existingSubscription){
+            await existingSubscription.deleteOne()
 
-         return res
-         .status(200)
-         .json(new ApiResponse(200, "subscription removed successfully"))
-      }
+            return res
+            .status(200)
+            .json(new ApiResponse(200, "subscription removed successfully"))
+        }
      
-     // Create new subscription 
+       // Create new subscription 
     const newSubscription = new Subscription(
         {
             user: req.user?._id, channel: channelId
         }
     )
-      await newSubscription.save()
+        await newSubscription.save()
 
-      return res
-      .status(201)
-      .json(new ApiResponse(201, "Subscribed to channel successfully", newSubscription)) 
+        return res
+        .status(201)
+        .json(new ApiResponse(201, "Subscribed to channel successfully", newSubscription)) 
 
 })
 
