@@ -14,27 +14,27 @@ const getVideoComments = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid video ID")
     }
 
-    // Normalize pagination valuses
+    // Normalize pagination values
     const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
     const limitNumber = Math.min(parseInt(limit, 10) || 10, 100);
     const skip = (pageNumber - 1) * limitNumber;
     
     // Fetch comments from the database
-    const comments = await Comment.find({videoId: mongoose.Types.ObjectId(videoId)})
+    const comments = await Comment.find({videoId: new mongoose.Types.ObjectId(videoId)})
         .sort({createdAt: -1})
         .skip(skip)
         .limit(limitNumber)
         .lean();
 
     // Get total count of comments for pagination
-    const totalComments = await Comment.countDocuments({videoId: mongoose.Types.ObjectId(videoId)});
-     const totalPages = totalComments ? Math.ceil(totalComments / limitNumber) : 1;
+    const totalComments = await Comment.countDocuments({videoId: new mongoose.Types.ObjectId(videoId)});
+        const totalPages = totalComments ? Math.ceil(totalComments / limitNumber) : 1;
 
-     return res
+        return res
         .status(200)
         .json(new ApiResponse(200, 
             "Comments fetched successfully",
-             {
+            {
             comments,
             page: pageNumber,
             limit: limitNumber,
@@ -64,8 +64,8 @@ const addComment = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Comment text is required")
     }
 
-    const videoObjectId = mongoose.Types.ObjectId(videoId);
-    const userObjectId = mongoose.Types.ObjectId(userId);
+    const videoObjectId = new mongoose.Types.ObjectId(videoId);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
 
    
     // Create and save the new comment
@@ -104,8 +104,8 @@ const updateComment = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Comment text is required")
     }
 
-    const commentObjectId = mongoose.Types.ObjectId(commentId);
-    const userObjectId = mongoose.Types.ObjectId(userId);
+    const commentObjectId = new mongoose.Types.ObjectId(commentId);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
 
     // Update the comment in the database
     const updatedComment = await Comment.findOneAndUpdate(
@@ -142,14 +142,14 @@ const deleteComment = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Unauthorized: User ID not found in request")
     }
 
-    const commentObjectId = mongoose.Types.ObjectId(commentId);
-    const userObjectId = mongoose.Types.ObjectId(userId);
+    const commentObjectId = new mongoose.Types.ObjectId(commentId);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
 
     // Delete the comment from the database
     const deletedComment = await Comment.findOneAndDelete(
         {
-             _id: commentObjectId, 
-             userId: userObjectId 
+            _id: commentObjectId, 
+            userId: userObjectId 
         }
     );
 
@@ -167,5 +167,5 @@ export {
     getVideoComments, 
     addComment, 
     updateComment,
-     deleteComment
+    deleteComment
     }

@@ -3,11 +3,11 @@ import { ApiError } from "../utils/ApiError.js"
 import jwt from "jsonwebtoken"
 import { User } from "../models/user.model.js"
 
-export const verifyJwt = asyncHandler(async (req, _, next) => {
+export const verifyJWT = asyncHandler(async (req, _, next) => {
     try {
         // Try to get token from cookies first, then from Authorization header
         const token = req.cookies?.accessToken || 
-                 req.header("Authorization")?.replace("Bearer ", "");
+                req.header("Authorization")?.replace("Bearer ", "");
         console.log(token);
         
         if (!token) {
@@ -29,3 +29,4 @@ export const verifyJwt = asyncHandler(async (req, _, next) => {
     }
 
 })
+
