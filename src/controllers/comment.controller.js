@@ -28,13 +28,13 @@ const getVideoComments = asyncHandler(async (req, res) => {
 
     // Get total count of comments for pagination
     const totalComments = await Comment.countDocuments({videoId: new mongoose.Types.ObjectId(videoId)});
-     const totalPages = totalComments ? Math.ceil(totalComments / limitNumber) : 1;
+        const totalPages = totalComments ? Math.ceil(totalComments / limitNumber) : 1;
 
-     return res
+        return res
         .status(200)
         .json(new ApiResponse(200, 
             "Comments fetched successfully",
-             {
+            {
             comments,
             page: pageNumber,
             limit: limitNumber,
@@ -148,8 +148,8 @@ const deleteComment = asyncHandler(async (req, res) => {
     // Delete the comment from the database
     const deletedComment = await Comment.findOneAndDelete(
         {
-             _id: commentObjectId, 
-             userId: userObjectId 
+            _id: commentObjectId, 
+            userId: userObjectId 
         }
     );
 
@@ -167,5 +167,5 @@ export {
     getVideoComments, 
     addComment, 
     updateComment,
-     deleteComment
+    deleteComment
     }

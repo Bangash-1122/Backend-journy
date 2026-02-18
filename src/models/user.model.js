@@ -35,8 +35,8 @@ const userSchema = new Schema({
     watchHistory: [{
         type: Schema.Types.ObjectId,
         ref: "Video"
-      }
-   ],
+    }
+    ],
     password: {
         type: String,
         required: [true,"Password is required"]
@@ -45,7 +45,7 @@ const userSchema = new Schema({
         type: String,
     },
 
-   }, {timestamps: true}
+    }, {timestamps: true}
 )
 
 userSchema.pre("save", async function (next) {
@@ -56,7 +56,7 @@ userSchema.pre("save", async function (next) {
 })
 
 userSchema.methods.isPasswordCorrect = async function (password) {
-   return await bcrypt.compare(password, this.password);
+    return await bcrypt.compare(password, this.password);
 }
 
 userSchema.methods.generateAccessToken = function(){
@@ -71,7 +71,7 @@ userSchema.methods.generateAccessToken = function(){
         {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
         }
-     ) 
+    ) 
 }
 userSchema.methods.generateRefreshToken = function(){
     return jasonWebToken.sign(
