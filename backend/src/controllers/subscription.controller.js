@@ -25,7 +25,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
             user: req.user?._id, channel: channelId 
         }
     ) 
-     
+
         if (existingSubscription){
             await existingSubscription.deleteOne()
 
@@ -33,7 +33,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
             .status(200)
             .json(new ApiResponse(200, "subscription removed successfully"))
         }
-     
+    
        // Create new subscription 
     const newSubscription = new Subscription(
         {
