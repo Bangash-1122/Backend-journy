@@ -123,8 +123,8 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Description is required");
     }
 
-    const videoFileLocalPath = req.files ? .videoFile ? . [0] ? .path;
-    const thumbnailLocalPath = req.files ? .thumbnail ? . [0] ? .path;
+    const videoFileLocalPath = req.files?.videoFile?.[0]?.path;
+    const thumbnailLocalPath = req.files?.thumbnail?.[0]?.path;
 
     if (!videoFileLocalPath) {
         throw new ApiError(400, "Video file is required");
@@ -138,18 +138,18 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
     try {
         videoFile = await uploadOnCloudinary(videoFileLocalPath);
-        if (!videoFile ? .url) {
+        if (!videoFile?.url) {
             throw new ApiError(500, "Video file upload to Cloudinary failed");
         }
 
         thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-        if (!thumbnail ? .url) {
+        if (!thumbnail?.url) {
             // Clean up the already uploaded video if thumbnail upload fails
             await deleteFromCloudinary(videoFile.url, "video");
             throw new ApiError(500, "Thumbnail upload to Cloudinary failed");
         }
     } catch (err) {
-        if (videoFile ? .url) await deleteFromCloudinary(videoFile.url, "video");
+        if (videoFile?.url) await deleteFromCloudinary(videoFile.url, "video");
         throw err;
     }
 
@@ -198,7 +198,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     });
 
     // Track user watch history if user is authenticated
-    if (req.user ? ._id) {
+    if (req.user?._id) {
         await User.findByIdAndUpdate(req.user._id, {
             $addToSet: {
                 watchHistory: video._id
@@ -237,10 +237,10 @@ const updateVideo = asyncHandler(async (req, res) => {
     if (title && title.trim() !== "") video.title = title.trim();
     if (description && description.trim() !== "") video.description = description.trim();
 
-    const thumbnailLocalPath = req.file ? .path;
+    const thumbnailLocalPath = req.file?.path;
     if (thumbnailLocalPath) {
         const newThumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-        if (newThumbnail ? .url) {
+        if (newThumbnail?.url) {
             const oldThumbnailUrl = video.thumbnail;
             video.thumbnail = newThumbnail.url;
             if (oldThumbnailUrl) {

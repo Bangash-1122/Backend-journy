@@ -12,7 +12,7 @@ import {
 export function usePlaylists(userId) {
   return useQuery({
     queryKey: queryKeys.playlists.mine(userId),
-    queryFn: () => fetchUserPlaylists(userId),
+    queryFn: ({ signal }) => fetchUserPlaylists(userId, { signal }),
     enabled: Boolean(userId),
   });
 }
@@ -20,7 +20,7 @@ export function usePlaylists(userId) {
 export function usePlaylist(id) {
   return useQuery({
     queryKey: queryKeys.playlists.detail(id),
-    queryFn: () => fetchPlaylist(id),
+    queryFn: ({ signal }) => fetchPlaylist(id, { signal }),
     enabled: Boolean(id),
   });
 }
@@ -45,7 +45,10 @@ export function useAddToPlaylist(userId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ playlistId, videoId }) => addVideoToPlaylist(playlistId, videoId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.playlists.mine(userId) }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.playlists.mine(userId) });
+      qc.invalidateQueries({ queryKey: queryKeys.playlists.detail(vars.playlistId) });
+    },
   });
 }
 

@@ -11,14 +11,14 @@ export default function StudioDashboard() {
   const user = useAuthStore((s) => s.user);
   const stats = useStudioStats(user?.id);
   const videos = useStudioVideos(user?.id);
-  const analytics = useStudioAnalytics('7D');
+  const analytics = useStudioAnalytics('7D', user?.id);
   const s = stats.data || {};
 
   const cards = [
-    { label: 'Views', value: formatViews(s.totalVideoViews) },
-    { label: 'Subscribers', value: formatViews(s.totalSubscribers) },
-    { label: 'Watch time', value: 'Sample' },
-    { label: 'Videos', value: s.totalVideos ?? '—' },
+    { label: 'Views', value: formatViews(s.totalVideoViews ?? 0) },
+    { label: 'Subscribers', value: formatViews(s.totalSubscribers ?? 0) },
+    { label: 'Total Likes', value: formatViews(s.totalLikeCount ?? 0) },
+    { label: 'Videos', value: s.totalVideos ?? 0 },
   ];
 
   return (

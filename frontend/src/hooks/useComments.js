@@ -5,7 +5,7 @@ import { addComment, deleteComment, fetchComments } from '@/services/comments.se
 export function useComments(videoId) {
   return useQuery({
     queryKey: queryKeys.comments.list(videoId),
-    queryFn: () => fetchComments(videoId),
+    queryFn: ({ signal }) => fetchComments(videoId, { signal }),
     enabled: Boolean(videoId),
   });
 }

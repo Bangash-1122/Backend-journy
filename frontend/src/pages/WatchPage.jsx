@@ -78,7 +78,10 @@ export default function WatchPage() {
                   if (!user) return toast.warning('You must sign in to like');
                   setLiked((v) => !v);
                   try {
-                    await like.mutateAsync(video.id);
+                    const res = await like.mutateAsync(video.id);
+                    if (res && typeof res.isLiked === 'boolean') {
+                      setLiked(res.isLiked);
+                    }
                   } catch {
                     setLiked((v) => !v);
                     toast.error('Could not like video');

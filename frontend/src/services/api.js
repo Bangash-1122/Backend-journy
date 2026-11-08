@@ -22,7 +22,7 @@ async function refreshAccess() {
   const refreshToken = getRefreshToken();
   const { data } = await axios.post(
     `${env.apiUrl}/users/refresh-token`,
-    { refreshToken },
+    refreshToken ? { refreshToken } : {},
     { withCredentials: true },
   );
   const body = unwrapBody(data);
@@ -41,7 +41,12 @@ api.interceptors.response.use(
   async (err) => {
     const original = err.config || {};
     const status = err.response?.status;
-    const isAuthCall = String(original.url || '').includes('/users/login') || String(original.url || '').includes('/users/register');
+    const url = String(original.url || '');
+    const isAuthCall =
+      url.includes('/users/login') ||
+      url.includes('/users/register') ||
+      url.includes('/users/refresh-token') ||
+      url.includes('/users/logout');
 
     if (status === 401 && !original._retry && !isAuthCall) {
       original._retry = true;

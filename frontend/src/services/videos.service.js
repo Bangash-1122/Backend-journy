@@ -9,8 +9,8 @@ export async function fetchVideos({ page = 1, limit = 12, query, sortBy, sortTyp
   return mapPaginatedVideos(data.data);
 }
 
-export async function fetchVideoById(id) {
-  const { data } = await api.get(`/videos/${id}`);
+export async function fetchVideoById(id, { signal } = {}) {
+  const { data } = await api.get(`/videos/${id}`, { signal });
   return mapVideo(data.data);
 }
 
@@ -35,12 +35,16 @@ export async function togglePublish(id) {
 
 export async function toggleVideoLike(id) {
   const { data } = await api.post(`/likes/toggle/v/${id}`);
-  const liked = String(data.message || '').toLowerCase().includes('liked') && !String(data.message || '').toLowerCase().includes('unliked');
-  return { liked, message: data.message };
+  const isLiked =
+    typeof data.data?.isLiked === 'boolean'
+      ? data.data.isLiked
+      : String(data.message || '').toLowerCase().includes('liked') &&
+        !String(data.message || '').toLowerCase().includes('unliked');
+  return { liked: isLiked, isLiked, message: data.message };
 }
 
-export async function fetchLikedVideos() {
-  const { data } = await api.get('/likes/videos');
+export async function fetchLikedVideos({ signal } = {}) {
+  const { data } = await api.get('/likes/videos', { signal });
   const rows = Array.isArray(data.data) ? data.data : [];
   return rows.map((row) => mapVideo(row.video || row)).filter(Boolean);
 }

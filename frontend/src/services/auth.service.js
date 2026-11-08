@@ -26,8 +26,8 @@ export async function logoutUser() {
   await api.post('/users/logout');
 }
 
-export async function fetchCurrentUser() {
-  const { data } = await api.get('/users/current-user');
+export async function fetchCurrentUser({ signal } = {}) {
+  const { data } = await api.get('/users/current-user', { signal });
   return mapUser(data.data);
 }
 
@@ -55,12 +55,12 @@ export async function updateCoverImage(file) {
   return mapUser(data.data);
 }
 
-export async function fetchChannel(username) {
-  const { data } = await api.get(`/users/c/${username}`);
+export async function fetchChannel(username, { signal } = {}) {
+  const { data } = await api.get(`/users/c/${username}`, { signal });
   return data.data;
 }
 
-export async function fetchWatchHistory() {
-  const { data } = await api.get('/users/watch-history');
+export async function fetchWatchHistory({ signal } = {}) {
+  const { data } = await api.get('/users/watch-history', { signal });
   return data.data;
 }

@@ -189,7 +189,7 @@ export const handlers = [
     const comment = db.comments.find((c) => c._id === params.commentId);
     if (!comment) return fail('Comment not found', 404);
     comment.likes = (comment.likes || 0) + 1;
-    return ok({ likes: comment.likes }, 'Comment liked successfully', 201);
+    return ok({ likes: comment.likes, isLiked: true }, 'Comment liked successfully', 201);
   }),
 
   http.post('*/api/v1/likes/toggle/t/:tweetId', () => ok({}, 'Tweet liked successfully', 201)),
@@ -197,10 +197,10 @@ export const handlers = [
   http.post('*/api/v1/likes/toggle/v/:videoId', ({ params }) => {
     if (db.likes.has(params.videoId)) {
       db.likes.delete(params.videoId);
-      return ok({}, 'Video unliked successfully');
+      return ok({ isLiked: false }, 'Video unliked successfully');
     }
     db.likes.add(params.videoId);
-    return ok({}, 'Video liked successfully', 201);
+    return ok({ isLiked: true }, 'Video liked successfully', 201);
   }),
 
   http.get('*/api/v1/likes/videos', () =>
@@ -210,10 +210,10 @@ export const handlers = [
   http.post('*/api/v1/subscriptions/c/:channelId', ({ params }) => {
     if (db.subscriptions.has(params.channelId)) {
       db.subscriptions.delete(params.channelId);
-      return ok({}, 'subscription removed successfully');
+      return ok({ isSubscribed: false }, 'subscription removed successfully');
     }
     db.subscriptions.add(params.channelId);
-    return ok({}, 'Subscribed to channel successfully', 201);
+    return ok({ isSubscribed: true }, 'Subscribed to channel successfully', 201);
   }),
 
   http.get('*/api/v1/subscriptions/u/:subscriberId', () =>

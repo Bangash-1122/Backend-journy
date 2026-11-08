@@ -16,7 +16,7 @@ export default function StudioAnalytics() {
   const [range, setRange] = useState('7D');
   const user = useAuthStore((s) => s.user);
   const stats = useStudioStats(user?.id);
-  const analytics = useStudioAnalytics(range);
+  const analytics = useStudioAnalytics(range, user?.id);
   const videos = useStudioVideos(user?.id);
   const points = analytics.data?.points || [];
   const s = stats.data || {};
@@ -39,15 +39,14 @@ export default function StudioAnalytics() {
       </div>
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          ['Views', formatViews(s.totalVideoViews), '+12%'],
-          ['Subscribers', formatViews(s.totalSubscribers), '+4%'],
-          ['Watch time', 'Sample', '—'],
-          ['Videos', s.totalVideos ?? '—', ''],
-        ].map(([label, value, delta]) => (
+          ['Views', formatViews(s.totalVideoViews ?? 0)],
+          ['Subscribers', formatViews(s.totalSubscribers ?? 0)],
+          ['Total Likes', formatViews(s.totalLikeCount ?? 0)],
+          ['Videos', s.totalVideos ?? 0],
+        ].map(([label, value]) => (
           <div key={label} className="rounded-xl border border-border bg-surface p-4">
             <p className="text-sm text-muted">{label}</p>
             <p className="mt-1 text-2xl font-bold">{value}</p>
-            <p className="text-xs text-success">{delta}</p>
           </div>
         ))}
       </div>

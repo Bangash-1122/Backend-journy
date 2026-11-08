@@ -1,15 +1,24 @@
 import { mapVideo } from '@/lib/adapters';
 import { api } from './api';
 
-export async function fetchStudioStats(channelId) {
-  const { data } = await api.get(`/dashboard/stats/${channelId}`);
+export async function fetchStudioStats(channelId, { signal } = {}) {
+  const { data } = await api.get(`/dashboard/stats/${channelId}`, { signal });
   return data.data;
 }
 
-export async function fetchStudioVideos(channelId) {
-  const { data } = await api.get(`/dashboard/videos/${channelId}`);
+export async function fetchStudioVideos(channelId, { signal } = {}) {
+  const { data } = await api.get(`/dashboard/videos/${channelId}`, { signal });
   const list = Array.isArray(data.data) ? data.data : [];
   return list.map(mapVideo).filter(Boolean);
+}
+
+export async function fetchStudioAnalytics(channelId, range = '7D', { signal } = {}) {
+  try {
+    const { data } = await api.get(`/dashboard/analytics/${channelId}`, { params: { range }, signal });
+    return { sample: false, points: data.data };
+  } catch {
+    return { sample: true, points: sampleAnalytics(range) };
+  }
 }
 
 export function sampleAnalytics(range = '7D') {

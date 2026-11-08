@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
-import { fetchStudioStats, fetchStudioVideos, sampleAnalytics } from '@/services/studio.service';
+import { fetchStudioAnalytics, fetchStudioStats, fetchStudioVideos } from '@/services/studio.service';
 
 export function useStudioStats(channelId) {
   return useQuery({
     queryKey: queryKeys.studio.stats(channelId),
-    queryFn: () => fetchStudioStats(channelId),
+    queryFn: ({ signal }) => fetchStudioStats(channelId, { signal }),
     enabled: Boolean(channelId),
   });
 }
@@ -13,14 +13,14 @@ export function useStudioStats(channelId) {
 export function useStudioVideos(channelId) {
   return useQuery({
     queryKey: queryKeys.studio.videos(channelId),
-    queryFn: () => fetchStudioVideos(channelId),
+    queryFn: ({ signal }) => fetchStudioVideos(channelId, { signal }),
     enabled: Boolean(channelId),
   });
 }
 
-export function useStudioAnalytics(range) {
+export function useStudioAnalytics(range, channelId) {
   return useQuery({
     queryKey: queryKeys.studio.analytics(range),
-    queryFn: async () => ({ sample: true, points: sampleAnalytics(range) }),
+    queryFn: ({ signal }) => fetchStudioAnalytics(channelId, range, { signal }),
   });
 }

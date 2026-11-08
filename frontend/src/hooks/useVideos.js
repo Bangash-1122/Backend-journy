@@ -16,7 +16,7 @@ export function useVideos(filters) {
 export function useVideo(id) {
   return useQuery({
     queryKey: queryKeys.videos.detail(id),
-    queryFn: () => fetchVideoById(id),
+    queryFn: ({ signal }) => fetchVideoById(id, { signal }),
     enabled: Boolean(id),
     staleTime: 60_000,
   });
@@ -26,7 +26,11 @@ export function useToggleLike() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: toggleVideoLike,
-    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.videos.all }),
+    onSettled: (_, __, id) => {
+      qc.invalidateQueries({ queryKey: queryKeys.videos.all });
+      if (id) qc.invalidateQueries({ queryKey: queryKeys.videos.detail(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.library.liked });
+    },
   });
 }
 

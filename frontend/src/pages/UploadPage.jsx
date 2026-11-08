@@ -39,6 +39,7 @@ export default function UploadPage() {
       }
     }
     setUploading(true);
+    setProgress(0);
     const id = toast.loading('Uploading…');
     try {
       const video = await uploadVideo({
@@ -46,7 +47,12 @@ export default function UploadPage() {
         thumbnail: thumb,
         title: values.title,
         description: values.description,
-        onProgress: (pct) => setProgress(pct),
+        onProgress: (pct) => {
+          setProgress(pct);
+          if (pct >= 100) {
+            toast.loading('Processing video on server…', { id });
+          }
+        },
       });
       toast.success('Video published', { id });
       navigate(video?.id ? `/watch/${video.id}` : '/studio/videos');
@@ -94,7 +100,9 @@ export default function UploadPage() {
               <div className="h-full bg-brand" style={{ width: `${progress}%` }} />
             </div>
             <p className="mt-1 text-xs text-muted">
-              {progress}% {file ? `• ${formatBytes(file.size)}` : ''}
+              {progress < 100
+                ? `${progress}% ${file ? `• ${formatBytes(file.size)}` : ''}`
+                : 'Processing video on server… Please wait'}
             </p>
           </div>
         ) : null}

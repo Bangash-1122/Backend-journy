@@ -1,8 +1,8 @@
 import { mapComment } from '@/lib/adapters';
 import { api } from './api';
 
-export async function fetchComments(videoId, { page = 1, limit = 20 } = {}) {
-  const { data } = await api.get(`/comments/${videoId}`, { params: { page, limit } });
+export async function fetchComments(videoId, { page = 1, limit = 20, signal } = {}) {
+  const { data } = await api.get(`/comments/${videoId}`, { params: { page, limit }, signal });
   const payload = data.data;
   const list = payload?.comments || (Array.isArray(payload) ? payload : []);
   return {
@@ -30,5 +30,15 @@ export async function deleteComment(commentId) {
 
 export async function toggleCommentLike(commentId) {
   const { data } = await api.post(`/likes/toggle/c/${commentId}`);
-  return data;
+  const isLiked =
+    typeof data.data?.isLiked === 'boolean'
+      ? data.data.isLiked
+      : String(data.message || '').toLowerCase().includes('liked') &&
+        !String(data.message || '').toLowerCase().includes('unliked');
+  return {
+    liked: isLiked,
+    isLiked,
+    message: data.message,
+    data: data.data,
+  };
 }

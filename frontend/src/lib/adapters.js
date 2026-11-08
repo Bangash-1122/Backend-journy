@@ -13,7 +13,7 @@ export function unwrapBody(body) {
 }
 
 export function mapUser(user) {
-  if (!user) return null;
+  if (!user || typeof user !== 'object') return null;
   return {
     id: user._id || user.id,
     username: user.username,
@@ -90,7 +90,12 @@ export function mapChannel(channel) {
 
 export function mapComment(comment, fallbackUser) {
   if (!comment) return null;
-  const owner = mapUser(comment.owner || comment.user) || fallbackUser;
+  const owner = mapUser(comment.owner || comment.user) || fallbackUser || {
+    id: typeof comment.owner === 'string' ? comment.owner : (comment.user || 'user'),
+    username: 'user',
+    fullName: 'User',
+    avatar: '',
+  };
   return {
     id: comment._id || comment.id,
     text: comment.text || comment.content || '',
