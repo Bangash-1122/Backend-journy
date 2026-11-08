@@ -268,7 +268,17 @@ export const handlers = [
   http.get('*/api/v1/dashboard/stats/:channelId', () =>
     ok({ totalVideos: db.videos.length, totalVideoViews: 4280000, totalSubscribers: 18200, totalLikeCount: 94000 }),
   ),
+  http.get('*/api/v1/dashboard/stats', () =>
+    ok({ totalVideos: db.videos.length, totalVideoViews: 4280000, totalSubscribers: 18200, totalLikeCount: 94000 }),
+  ),
   http.get('*/api/v1/dashboard/videos/:channelId', () => ok(db.videos.filter((v) => v.owner?._id === db.session.user._id).concat(db.videos.slice(0, 6)))),
+  http.get('*/api/v1/dashboard/videos', () => ok(db.videos.filter((v) => v.owner?._id === db.session.user._id).concat(db.videos.slice(0, 6)))),
+  http.get('*/api/v1/dashboard/analytics/:channelId', () => {
+    return ok([], 'Analytics fetched');
+  }),
+  http.get('*/api/v1/dashboard/analytics', () => {
+    return ok([], 'Analytics fetched');
+  }),
 
   http.get('*/api/v1/tweets/user/:userId', () => ok(db.tweets)),
   http.post('*/api/v1/tweets', async ({ request }) => {
@@ -290,7 +300,7 @@ export const handlers = [
   }),
 
   // Fallback handler for any unmatched /api/v1/* calls to prevent network failures in mock mode
-  http.all('*/api/v1/*', ({ request }) => {
-    return ok({}, `Mock fallback for ${request.method} ${request.url}`);
+  http.all('*/api/v1/**', ({ request }) => {
+    return ok([], `Mock fallback for ${request.method} ${request.url}`);
   }),
 ];

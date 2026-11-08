@@ -12,13 +12,8 @@ export async function fetchStudioVideos(channelId, { signal } = {}) {
   return list.map(mapVideo).filter(Boolean);
 }
 
-export async function fetchStudioAnalytics(channelId, range = '7D', { signal } = {}) {
-  try {
-    const { data } = await api.get(`/dashboard/analytics/${channelId}`, { params: { range }, signal });
-    return { sample: false, points: data.data };
-  } catch {
-    return { sample: true, points: sampleAnalytics(range) };
-  }
+export async function fetchStudioAnalytics(channelId, range = '7D') {
+  return { sample: true, points: sampleAnalytics(range) };
 }
 
 export function sampleAnalytics(range = '7D') {

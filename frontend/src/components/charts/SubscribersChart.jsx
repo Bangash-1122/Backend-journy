@@ -1,9 +1,10 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 export default function SubscribersChart({ data }) {
+  const chartData = Array.isArray(data) ? data : [];
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data}>
+      <BarChart data={chartData}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
         <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
         <YAxis stroke="var(--muted)" fontSize={12} />

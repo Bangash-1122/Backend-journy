@@ -165,7 +165,13 @@ addEventListener('fetch', function (event) {
 
   // Bypass navigation requests so the browser handles HTML document loads natively.
   // Chrome forbids Service Worker passthrough fetch() on navigate requests with custom headers.
-  if (event.request.mode === 'navigate') {
+  if (
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'document' ||
+    event.request.url.includes('/@') ||
+    event.request.url.includes('/src/') ||
+    event.request.url.includes('/node_modules/')
+  ) {
     return
   }
 

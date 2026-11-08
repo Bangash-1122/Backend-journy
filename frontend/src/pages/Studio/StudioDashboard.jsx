@@ -11,8 +11,9 @@ export default function StudioDashboard() {
   const user = useAuthStore((s) => s.user);
   const stats = useStudioStats(user?.id);
   const videos = useStudioVideos(user?.id);
-  const analytics = useStudioAnalytics('7D', user?.id);
+  const analytics = useStudioAnalytics('7D');
   const s = stats.data || {};
+  const chartPoints = Array.isArray(analytics.data?.points) ? analytics.data.points : [];
 
   const cards = [
     { label: 'Views', value: formatViews(s.totalVideoViews ?? 0) },
@@ -41,7 +42,7 @@ export default function StudioDashboard() {
       </div>
       <div className="mt-6">
         <ChartCard title="Views" subtitle="Last 7 days" badge={<Badge tone="warning">Sample data</Badge>}>
-          {analytics.isLoading ? <Skeleton className="h-[280px]" /> : <ViewsChart data={analytics.data?.points || []} />}
+          {analytics.isLoading ? <Skeleton className="h-[280px]" /> : <ViewsChart data={chartPoints} />}
         </ChartCard>
       </div>
       <h2 className="mt-8 mb-3 text-lg font-semibold">Recent videos</h2>

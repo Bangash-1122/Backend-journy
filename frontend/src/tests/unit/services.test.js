@@ -18,6 +18,9 @@ import {
     toggleCommentLike
 } from '@/services/comments.service';
 import {
+    fetchStudioAnalytics
+} from '@/services/studio.service';
+import {
     mapComment
 } from '@/lib/adapters';
 import {
@@ -130,5 +133,14 @@ describe('Frontend Services Optimization & Contracts', () => {
         expect(mapped.owner).toBeDefined();
         expect(mapped.owner.username).toBe('user');
         expect(mapped.owner.fullName).toBe('User');
+    });
+
+    it('fetchStudioAnalytics guarantees points array for chart safety', async () => {
+        const res = await fetchStudioAnalytics('u-123', '7D');
+        expect(res).toBeDefined();
+        expect(Array.isArray(res.points)).toBe(true);
+        expect(res.points.length).toBe(7);
+        expect(res.points[0]).toHaveProperty('views');
+        expect(res.points[0]).toHaveProperty('date');
     });
 });
