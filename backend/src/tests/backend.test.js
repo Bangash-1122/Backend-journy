@@ -1,13 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ApiResponse } from "../utils/ApiResponse.js";
-import { ApiError } from "../utils/ApiError.js";
-import { app } from "../app.js";
+import {
+    ApiResponse
+} from "../utils/ApiResponse.js";
+import {
+    ApiError
+} from "../utils/ApiError.js";
+import {
+    app
+} from "../app.js";
 
 test("ApiResponse sets fields and success flag correctly", () => {
-    const res200 = new ApiResponse(200, { user: "test" }, "Success message");
+    const res200 = new ApiResponse(200, {
+        user: "test"
+    }, "Success message");
     assert.equal(res200.statusCode, 200);
-    assert.deepEqual(res200.data, { user: "test" });
+    assert.deepEqual(res200.data, {
+        user: "test"
+    });
     assert.equal(res200.message, "Success message");
     assert.equal(res200.success, true);
 

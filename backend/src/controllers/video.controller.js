@@ -1,15 +1,32 @@
-import mongoose, { isValidObjectId } from "mongoose";
-import { Video } from "../models/video.model.js";
-import { User } from "../models/user.model.js";
-import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
+import mongoose, {
+    isValidObjectId
+} from "mongoose";
+import {
+    Video
+} from "../models/video.model.js";
+import {
+    User
+} from "../models/user.model.js";
+import {
+    ApiError
+} from "../utils/ApiError.js";
+import {
+    ApiResponse
+} from "../utils/ApiResponse.js";
+import {
+    asyncHandler
+} from "../utils/asyncHandler.js";
+import {
+    uploadOnCloudinary,
+    deleteFromCloudinary
+} from "../utils/cloudinary.js";
 
 const SORT_WHITELIST = ["createdAt", "views", "duration", "title"];
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy = "createdAt", sortType = "desc", userId } = req.query;
+    const {
+        page = 1, limit = 10, query, sortBy = "createdAt", sortType = "desc", userId
+    } = req.query;
 
     const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
     const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
@@ -30,40 +47,54 @@ const getAllVideos = asyncHandler(async (req, res) => {
     }
 
     if (query && query.trim() !== "") {
-        matchStage.$or = [
-            { title: { $regex: query.trim(), $options: "i" } },
-            { description: { $regex: query.trim(), $options: "i" } }
+        matchStage.$or = [{
+                title: {
+                    $regex: query.trim(),
+                    $options: "i"
+                }
+            },
+            {
+                description: {
+                    $regex: query.trim(),
+                    $options: "i"
+                }
+            }
         ];
     }
 
     const sortField = SORT_WHITELIST.includes(sortBy) ? sortBy : "createdAt";
     const sortDirection = sortType === "asc" ? 1 : -1;
-    const sortStage = { [sortField]: sortDirection };
+    const sortStage = {
+        [sortField]: sortDirection
+    };
 
     // Notice: NO $skip and $limit inside the pipeline here! aggregatePaginate handles pagination.
-    const pipeline = [
-        { $match: matchStage },
-        { $sort: sortStage },
+    const pipeline = [{
+            $match: matchStage
+        },
+        {
+            $sort: sortStage
+        },
         {
             $lookup: {
                 from: "users",
                 localField: "owner",
                 foreignField: "_id",
                 as: "owner",
-                pipeline: [
-                    {
-                        $project: {
-                            username: 1,
-                            fullName: 1,
-                            avatar: 1
-                        }
+                pipeline: [{
+                    $project: {
+                        username: 1,
+                        fullName: 1,
+                        avatar: 1
                     }
-                ]
+                }]
             }
         },
         {
             $addFields: {
-                owner: { $first: "$owner" }
+                owner: {
+                    $first: "$owner"
+                }
             }
         }
     ];
@@ -80,7 +111,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
-    const { title, description } = req.body;
+    const {
+        title,
+        description
+    } = req.body;
 
     if (!title || title.trim() === "") {
         throw new ApiError(400, "Title is required");
@@ -89,8 +123,8 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Description is required");
     }
 
-    const videoFileLocalPath = req.files?.videoFile?.[0]?.path;
-    const thumbnailLocalPath = req.files?.thumbnail?.[0]?.path;
+    const videoFileLocalPath = req.files ? .videoFile ? . [0] ? .path;
+    const thumbnailLocalPath = req.files ? .thumbnail ? . [0] ? .path;
 
     if (!videoFileLocalPath) {
         throw new ApiError(400, "Video file is required");
@@ -104,18 +138,18 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
     try {
         videoFile = await uploadOnCloudinary(videoFileLocalPath);
-        if (!videoFile?.url) {
+        if (!videoFile ? .url) {
             throw new ApiError(500, "Video file upload to Cloudinary failed");
         }
 
         thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-        if (!thumbnail?.url) {
+        if (!thumbnail ? .url) {
             // Clean up the already uploaded video if thumbnail upload fails
             await deleteFromCloudinary(videoFile.url, "video");
             throw new ApiError(500, "Thumbnail upload to Cloudinary failed");
         }
     } catch (err) {
-        if (videoFile?.url) await deleteFromCloudinary(videoFile.url, "video");
+        if (videoFile ? .url) await deleteFromCloudinary(videoFile.url, "video");
         throw err;
     }
 
@@ -137,7 +171,9 @@ const publishAVideo = asyncHandler(async (req, res) => {
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
-    const { videoId } = req.params;
+    const {
+        videoId
+    } = req.params;
 
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID");
@@ -157,12 +193,16 @@ const getVideoById = asyncHandler(async (req, res) => {
 
     // Increment views
     video.views += 1;
-    await video.save({ validateBeforeSave: false });
+    await video.save({
+        validateBeforeSave: false
+    });
 
     // Track user watch history if user is authenticated
-    if (req.user?._id) {
+    if (req.user ? ._id) {
         await User.findByIdAndUpdate(req.user._id, {
-            $addToSet: { watchHistory: video._id }
+            $addToSet: {
+                watchHistory: video._id
+            }
         });
     }
 
@@ -172,8 +212,13 @@ const getVideoById = asyncHandler(async (req, res) => {
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params;
-    const { title, description } = req.body;
+    const {
+        videoId
+    } = req.params;
+    const {
+        title,
+        description
+    } = req.body;
 
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID");
@@ -192,10 +237,10 @@ const updateVideo = asyncHandler(async (req, res) => {
     if (title && title.trim() !== "") video.title = title.trim();
     if (description && description.trim() !== "") video.description = description.trim();
 
-    const thumbnailLocalPath = req.file?.path;
+    const thumbnailLocalPath = req.file ? .path;
     if (thumbnailLocalPath) {
         const newThumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-        if (newThumbnail?.url) {
+        if (newThumbnail ? .url) {
             const oldThumbnailUrl = video.thumbnail;
             video.thumbnail = newThumbnail.url;
             if (oldThumbnailUrl) {
@@ -214,7 +259,9 @@ const updateVideo = asyncHandler(async (req, res) => {
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params;
+    const {
+        videoId
+    } = req.params;
 
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID");
@@ -241,12 +288,16 @@ const deleteVideo = asyncHandler(async (req, res) => {
     await video.deleteOne();
 
     return res.status(200).json(
-        new ApiResponse(200, { videoId }, "Video deleted successfully")
+        new ApiResponse(200, {
+            videoId
+        }, "Video deleted successfully")
     );
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
-    const { videoId } = req.params;
+    const {
+        videoId
+    } = req.params;
 
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID");
@@ -263,7 +314,9 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     }
 
     video.isPublished = !video.isPublished;
-    await video.save({ validateBeforeSave: false });
+    await video.save({
+        validateBeforeSave: false
+    });
 
     return res.status(200).json(
         new ApiResponse(
