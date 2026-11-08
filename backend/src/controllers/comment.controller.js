@@ -1,171 +1,142 @@
-import mongoose from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 import { Comment } from "../models/comment.model.js";
-import {ApiError} from "../utils/ApiError.js"
-import {ApiResponse} from "../utils/ApiResponse.js"
-import {asyncHandler} from "../utils/asyncHandler.js"
+import { Video } from "../models/video.model.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
-    //TODO: get all comments for a video
-    const {videoId} = req.params
-    const {page = 1, limit = 10} = req.query
+    const { videoId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
 
-   // Validate videoId
-    if(!mongoose.Types.ObjectId.isValid(videoId)){
-        throw new ApiError(400, "Invalid video ID")
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
     }
 
-    // Normalize pagination values
     const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
-    const limitNumber = Math.min(parseInt(limit, 10) || 10, 100);
+    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
     const skip = (pageNumber - 1) * limitNumber;
-    
-    // Fetch comments from the database
-    const comments = await Comment.find({videoId: new mongoose.Types.ObjectId(videoId)})
-        .sort({createdAt: -1})
-        .skip(skip)
-        .limit(limitNumber)
-        .lean();
 
-    // Get total count of comments for pagination
-    const totalComments = await Comment.countDocuments({videoId: new mongoose.Types.ObjectId(videoId)});
-     const totalPages = totalComments ? Math.ceil(totalComments / limitNumber) : 1;
+    const [comments, totalComments] = await Promise.all([
+        Comment.find({ video: videoId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNumber)
+            .populate("owner", "username fullName avatar")
+            .lean(),
+        Comment.countDocuments({ video: videoId })
+    ]);
 
-     return res
-        .status(200)
-        .json(new ApiResponse(200, 
-            "Comments fetched successfully",
-             {
-            comments,
-            page: pageNumber,
-            limit: limitNumber,
-            totalPages,
-            totalComments
-        }
-    ));
+    const totalPages = Math.ceil(totalComments / limitNumber) || 1;
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                comments,
+                page: pageNumber,
+                limit: limitNumber,
+                totalPages,
+                totalComments
+            },
+            "Comments fetched successfully"
+        )
+    );
 });
 
 const addComment = asyncHandler(async (req, res) => {
-    // TODO: add a comment to a video
-    const {videoId} = req.params
-    const {text} = req.body
-    const userId = req.user?._id
-    // Validate videoId
-    if(!mongoose.Types.ObjectId.isValid(videoId)){
-        throw new ApiError(400, "Invalid video ID")
+    const { videoId } = req.params;
+    const text = req.body.content || req.body.text;
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
     }
 
-     // Validate user session
-    if(!userId){
-        throw new ApiError(401, "Unauthorized: User ID not found in request")
+    const video = await Video.findById(videoId);
+    if (!video) {
+        throw new ApiError(404, "Video not found");
     }
 
-    // Validate text
-    if(!text || typeof text !== "string" || text.trim().length === 0){
-        throw new ApiError(400, "Comment text is required")
+    if (!text || typeof text !== "string" || text.trim().length === 0) {
+        throw new ApiError(400, "Comment content is required");
     }
 
-    const videoObjectId = new mongoose.Types.ObjectId(videoId);
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-
-   
-    // Create and save the new comment
-    const newComment = new Comment({
-        videoId: videoObjectId,
-        userId: userObjectId,
-        text: text.trim()
+    const newComment = await Comment.create({
+        content: text.trim(),
+        video: videoId,
+        owner: req.user._id
     });
 
-    await newComment.save();
+    const populatedComment = await Comment.findById(newComment._id).populate(
+        "owner",
+        "username fullName avatar"
+    );
 
-    return res
-        .status(201)
-        .json(new ApiResponse(201, "Comment added successfully", newComment));
-
+    return res.status(201).json(
+        new ApiResponse(201, populatedComment, "Comment added successfully")
+    );
 });
 
 const updateComment = asyncHandler(async (req, res) => {
-    // TODO: update a comment
-    const {commentId} = req.params
-    const {text} = req.body
-    const userId = req.user?._id
+    const { commentId } = req.params;
+    const text = req.body.content || req.body.text;
 
-    // Validate commentId
-    if(!mongoose.Types.ObjectId.isValid(commentId)){
-        throw new ApiError(400, "Invalid comment ID")
+    if (!isValidObjectId(commentId)) {
+        throw new ApiError(400, "Invalid comment ID");
     }
 
-    // Validate user session
-    if(!userId){
-        throw new ApiError(401, "Unauthorized: User ID not found in request")
+    if (!text || typeof text !== "string" || text.trim().length === 0) {
+        throw new ApiError(400, "Comment content is required");
     }
 
-    // Validate text
-    if(!text || typeof text !== "string" || text.trim().length === 0){
-        throw new ApiError(400, "Comment text is required")
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+        throw new ApiError(404, "Comment not found");
     }
 
-    const commentObjectId = new mongoose.Types.ObjectId(commentId);
-    const userObjectId = new mongoose.Types.ObjectId(userId);
+    if (comment.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to update this comment");
+    }
 
-    // Update the comment in the database
-    const updatedComment = await Comment.findOneAndUpdate(
-        { _id: commentObjectId, userId: userObjectId },
-        { text: text.trim() },
-        { 
-            new: true,
-            runValidators: true
-        },
+    comment.content = text.trim();
+    await comment.save();
+
+    const updatedComment = await Comment.findById(commentId).populate(
+        "owner",
+        "username fullName avatar"
     );
 
-    if (!updatedComment) {
-        throw new ApiError(404, "Comment not found or you are not authorized to update this comment");
-    }
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, "Comment updated successfully", updatedComment));
-
+    return res.status(200).json(
+        new ApiResponse(200, updatedComment, "Comment updated successfully")
+    );
 });
 
 const deleteComment = asyncHandler(async (req, res) => {
-    // TODO: delete a comment
-    const {commentId} = req.params
-    const userId = req.user?._id
+    const { commentId } = req.params;
 
-    // Validate commentId
-    if(!mongoose.Types.ObjectId.isValid(commentId)){
-        throw new ApiError(400, "Invalid comment ID")
+    if (!isValidObjectId(commentId)) {
+        throw new ApiError(400, "Invalid comment ID");
     }
 
-    // Validate user session
-    if(!userId){
-        throw new ApiError(401, "Unauthorized: User ID not found in request")
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+        throw new ApiError(404, "Comment not found");
     }
 
-    const commentObjectId = new mongoose.Types.ObjectId(commentId);
-    const userObjectId = new mongoose.Types.ObjectId(userId);
+    if (comment.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to delete this comment");
+    }
 
-    // Delete the comment from the database
-    const deletedComment = await Comment.findOneAndDelete(
-        {
-             _id: commentObjectId, 
-             userId: userObjectId 
-        }
+    await comment.deleteOne();
+
+    return res.status(200).json(
+        new ApiResponse(200, { commentId }, "Comment deleted successfully")
     );
-
-    if (!deletedComment) {
-        throw new ApiError(404, "Comment not found or you are not authorized to delete this comment");
-    }
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, "Comment deleted successfully", deletedComment));
-
 });
 
 export {
-    getVideoComments, 
-    addComment, 
+    getVideoComments,
+    addComment,
     updateComment,
-     deleteComment
-    }
+    deleteComment
+};

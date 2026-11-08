@@ -1,68 +1,31 @@
-import mongoose from "mongoose"
-import { Video } from "../models/video.model.js"
-import { Subscription } from "../models/subscription.model.js"
-import { Like } from "../models/like.model.js"
-import { ApiError } from "../utils/ApiError.js"
-import { ApiResponse } from "../utils/ApiResponse.js"
-import { asyncHandler } from "../utils/asyncHandler.js"
+import mongoose from "mongoose";
+import { Video } from "../models/video.model.js";
+import { Subscription } from "../models/subscription.model.js";
+import { Like } from "../models/like.model.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const getChannelStats = asyncHandler(async (req, res) => {
-    // TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
-    const { channelId } = req.params
+    const { channelId } = req.params;
 
-    // Validate channelId
     if (!mongoose.Types.ObjectId.isValid(channelId)) {
-        throw new ApiError(400, "Invalid channel ID")
+        throw new ApiError(400, "Invalid channel ID");
     }
 
-    const channelObjectId = new mongoose.Types.ObjectId(channelId)
+    const channelObjectId = new mongoose.Types.ObjectId(channelId);
 
-    const [
-        totalVideos,
-        totalViews,
-        totalSubscribers,
-        totalLikes
-    ] = await Promise.all([
-        // Fetch total videos uploaded by the channel
-        Video.countDocuments({ owner: channelObjectId }),
+    // Get all video IDs owned by this channel
+    const channelVideos = await Video.find({ owner: channelObjectId }).select("_id views");
+    const channelVideoIds = channelVideos.map((v) => v._id);
 
-        // Total views on all videos of this channel
-        Video.aggregate([
-            {
-                $match: {
-                    owner: channelObjectId
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalViews: { $sum: "$views" }
-                }
-            }
-        ]),
+    const totalVideos = channelVideos.length;
+    const totalVideoViews = channelVideos.reduce((acc, curr) => acc + (curr.views || 0), 0);
 
-        // Total subscribers to this channel
-        Subscription.countDocuments({ channelId: channelObjectId }),
-
-        // Total likes on videos (currently global, not per-channel)
-        Like.aggregate([
-            {
-                $match: {
-                    contentType: "Video", // make sure this matches your DB value
-                    isLiked: true
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    likeCount: { $sum: 1 }
-                }
-            }
-        ])
-    ])
-
-    const totalVideoViews = totalViews.length > 0 ? totalViews[0].totalViews : 0
-    const totalLikeCount = totalLikes.length > 0 ? totalLikes[0].likeCount : 0
+    const [totalSubscribers, totalLikeCount] = await Promise.all([
+        Subscription.countDocuments({ channel: channelObjectId }),
+        Like.countDocuments({ video: { $in: channelVideoIds } })
+    ]);
 
     return res.status(200).json(
         new ApiResponse(
@@ -75,34 +38,35 @@ const getChannelStats = asyncHandler(async (req, res) => {
             },
             "Channel stats fetched successfully"
         )
-    )
-})
+    );
+});
 
 const getChannelVideos = asyncHandler(async (req, res) => {
-    // TODO: Get all the videos uploaded by the channel
-    const { channelId } = req.params
+    const { channelId } = req.params;
 
-    // Validate channelId
     if (!mongoose.Types.ObjectId.isValid(channelId)) {
-        throw new ApiError(400, "Invalid channel ID")
+        throw new ApiError(400, "Invalid channel ID");
     }
 
-    const channelObjectId = new mongoose.Types.ObjectId(channelId)
+    const channelObjectId = new mongoose.Types.ObjectId(channelId);
 
-    const videos = await Video
-        .find({ owner: channelObjectId })
-        .sort({ createdAt: -1 }) // newest first (optional but recommended)
+    // Private Studio protection: only the channel owner can view their own unpublished videos
+    const isOwner = req.user && req.user._id.toString() === channelId.toString();
+    const query = { owner: channelObjectId };
+    if (!isOwner) {
+        query.isPublished = true;
+    }
+
+    const videos = await Video.find(query)
+        .sort({ createdAt: -1 })
+        .populate("owner", "username fullName avatar");
 
     return res.status(200).json(
-        new ApiResponse(
-            200,
-            videos,
-            "Channel videos fetched successfully"
-        )
-    )
-})
+        new ApiResponse(200, videos, "Channel videos fetched successfully")
+    );
+});
 
 export {
     getChannelStats,
     getChannelVideos
-}
+};
