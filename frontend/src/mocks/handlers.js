@@ -177,6 +177,23 @@ export const handlers = [
     return ok({}, 'Comment deleted successfully');
   }),
 
+  http.patch('*/api/v1/comments/c/:commentId', async ({ params, request }) => {
+    const body = await request.json();
+    const comment = db.comments.find((c) => c._id === params.commentId);
+    if (!comment) return fail('Comment not found', 404);
+    comment.text = body.text || body.content || comment.text;
+    return ok(comment, 'Comment updated successfully');
+  }),
+
+  http.post('*/api/v1/likes/toggle/c/:commentId', ({ params }) => {
+    const comment = db.comments.find((c) => c._id === params.commentId);
+    if (!comment) return fail('Comment not found', 404);
+    comment.likes = (comment.likes || 0) + 1;
+    return ok({ likes: comment.likes }, 'Comment liked successfully', 201);
+  }),
+
+  http.post('*/api/v1/likes/toggle/t/:tweetId', () => ok({}, 'Tweet liked successfully', 201)),
+
   http.post('*/api/v1/likes/toggle/v/:videoId', ({ params }) => {
     if (db.likes.has(params.videoId)) {
       db.likes.delete(params.videoId);
@@ -201,6 +218,12 @@ export const handlers = [
 
   http.get('*/api/v1/subscriptions/u/:subscriberId', () =>
     ok([...db.subscriptions].map((id) => ({ channel: db.users.find((u) => u._id === id) })).filter((r) => r.channel)),
+  ),
+
+  http.get('*/api/v1/subscriptions/c/:channelId', ({ params }) =>
+    ok({
+      subscribers: db.users.filter((_u) => db.subscriptions.has(params.channelId)),
+    }),
   ),
 
   http.get('*/api/v1/playlist/user/:userId', () => ok(db.playlists)),
@@ -253,5 +276,21 @@ export const handlers = [
     const tweet = { _id: `t-${Date.now()}`, content: body.content, owner: db.session.user, createdAt: new Date().toISOString() };
     db.tweets.unshift(tweet);
     return ok(tweet, 'Tweet created successfully', 201);
+  }),
+  http.patch('*/api/v1/tweets/:tweetId', async ({ params, request }) => {
+    const body = await request.json();
+    const tweet = db.tweets.find((t) => t._id === params.tweetId);
+    if (!tweet) return fail('Tweet not found', 404);
+    tweet.content = body.content || tweet.content;
+    return ok(tweet, 'Tweet updated successfully');
+  }),
+  http.delete('*/api/v1/tweets/:tweetId', ({ params }) => {
+    db.tweets = db.tweets.filter((t) => t._id !== params.tweetId);
+    return ok({}, 'Tweet deleted successfully');
+  }),
+
+  // Fallback handler for any unmatched /api/v1/* calls to prevent network failures in mock mode
+  http.all('*/api/v1/*', ({ request }) => {
+    return ok({}, `Mock fallback for ${request.method} ${request.url}`);
   }),
 ];

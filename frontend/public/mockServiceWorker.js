@@ -163,6 +163,12 @@ addEventListener('fetch', function (event) {
     return
   }
 
+  // Bypass navigation requests so the browser handles HTML document loads natively.
+  // Chrome forbids Service Worker passthrough fetch() on navigate requests with custom headers.
+  if (event.request.mode === 'navigate') {
+    return
+  }
+
   // This request may be the one waking the worker up after the browser
   // has terminated it. Wait for the active clients to be restored
   // before deciding whether to handle the request.
@@ -303,7 +309,18 @@ async function handleRequest(event) {
       })
     }
 
-    throw error
+    return new Response(
+      JSON.stringify({
+        success: false,
+        statusCode: 502,
+        message: error?.message || 'Network request failed',
+      }),
+      {
+        status: 502,
+        statusText: 'Bad Gateway',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )
   }
 
   // Send back the response clone for the "response:*" life-cycle events.
@@ -436,7 +453,20 @@ async function getResponse(event, client, requestId) {
       }
     }
 
-    return fetch(requestClone, { headers })
+    return fetch(requestClone, { headers }).catch((error) => {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          statusCode: 502,
+          message: error?.message || 'Network request failed',
+        }),
+        {
+          status: 502,
+          statusText: 'Bad Gateway',
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    })
   }
 
   // Bypass mocking when the client is not active.
