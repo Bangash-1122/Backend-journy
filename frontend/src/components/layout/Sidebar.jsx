@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Clock, Heart, History, Home, ListVideo, UserRound, Users } from 'lucide-react';
+import { Clock, Flame, Heart, History, Home, ListVideo, UserRound, Users } from 'lucide-react';
 import { SIDEBAR_MAIN, SIDEBAR_YOU } from '@/lib/constants';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
@@ -7,6 +7,7 @@ import Avatar from '@/components/ui/Avatar';
 
 const icons = {
   home: Home,
+  shorts: Flame,
   subscriptions: Users,
   channel: UserRound,
   history: History,

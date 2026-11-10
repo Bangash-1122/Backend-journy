@@ -45,6 +45,9 @@ export function mapVideo(video) {
     createdAt: video.createdAt,
     category: video.category || 'All',
     likes: video.likes || 0,
+    isShort: Boolean(video.isShort || (video.duration > 0 && video.duration <= 60 && video.aspectRatio === '9:16')),
+    aspectRatio: video.aspectRatio || (video.isShort ? '9:16' : '16:9'),
+    isLiked: Boolean(video.isLiked),
     owner,
     raw: video,
   };

@@ -9,6 +9,7 @@ import {
 import {
     app
 } from "../app.js";
+import { securityHeaders } from "../middlewares/security.middleware.js";
 
 test("ApiResponse sets fields and success flag correctly", () => {
     const res200 = new ApiResponse(200, {
@@ -40,4 +41,21 @@ test("Express app has all 9 route groups mounted", () => {
     // In Express 5, check router layers or request dispatcher
     const router = app.router || app._router;
     assert.ok(app);
+});
+
+test("Security headers middleware sets standard protection headers", () => {
+    let headers = {};
+    const req = { ip: "127.0.0.1" };
+    const res = {
+        setHeader: (k, v) => { headers[k] = v; },
+        removeHeader: (k) => { delete headers[k]; }
+    };
+    let nextCalled = false;
+    const next = () => { nextCalled = true; };
+
+    securityHeaders(req, res, next);
+    assert.equal(headers["X-Content-Type-Options"], "nosniff");
+    assert.equal(headers["X-Frame-Options"], "SAMEORIGIN");
+    assert.equal(headers["Cross-Origin-Resource-Policy"], "cross-origin");
+    assert.equal(nextCalled, true);
 });

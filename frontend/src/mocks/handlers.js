@@ -97,11 +97,54 @@ export const handlers = [
     return ok(paginate(list, url));
   }),
 
+  http.get('*/api/v1/videos/feed/shorts', ({ request }) => {
+    const url = new URL(request.url);
+    const shorts = db.videos
+      .filter((v) => v.isShort || v.duration <= 60)
+      .map((v) => ({
+        ...v,
+        isLiked: db.likes.has(v._id),
+      }));
+    return ok(paginate(shorts, url));
+  }),
+
+  http.get('*/api/v1/videos/feed/recommendations', ({ request }) => {
+    const url = new URL(request.url);
+    const category = url.searchParams.get('category');
+    let list = db.videos.filter((v) => !v.isShort);
+    if (category && category !== 'All') {
+      list = list.filter((v) => v.category?.toLowerCase() === category.toLowerCase());
+    }
+    // Score by views and recency
+    list.sort((a, b) => b.views - a.views);
+    return ok(paginate(list, url));
+  }),
+
+  http.get('*/api/v1/videos/related/:videoId', ({ params, request }) => {
+    const url = new URL(request.url);
+    const limit = Number(url.searchParams.get('limit') || 12);
+    const target = db.videos.find((v) => v._id === params.videoId);
+    let list = db.videos.filter((v) => v._id !== params.videoId && !v.isShort);
+    if (target) {
+      list.sort((a, b) => {
+        const aCatMatch = a.category === target.category ? 10 : 0;
+        const bCatMatch = b.category === target.category ? 10 : 0;
+        const aOwnerMatch = a.owner?._id === target.owner?._id ? 5 : 0;
+        const bOwnerMatch = b.owner?._id === target.owner?._id ? 5 : 0;
+        return (bCatMatch + bOwnerMatch + b.views / 100000) - (aCatMatch + aOwnerMatch + a.views / 100000);
+      });
+    }
+    return ok(list.slice(0, limit));
+  }),
+
   http.get('*/api/v1/videos/:videoId', ({ params }) => {
     const video = db.videos.find((v) => v._id === params.videoId);
     if (!video) return fail('Video not found', 404);
     video.views += 1;
-    return ok(video);
+    return ok({
+      ...video,
+      isLiked: db.likes.has(video._id),
+    });
   }),
 
   http.post('*/api/v1/videos', async ({ request }) => {

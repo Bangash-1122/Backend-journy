@@ -41,9 +41,56 @@ export function useToggleSubscribe() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: toggleSubscription,
+    onMutate: async (channelId) => {
+      await qc.cancelQueries({ queryKey: ['channels'] });
+      await qc.cancelQueries({ queryKey: ['videos'] });
+
+      const previousChannels = qc.getQueriesData({ queryKey: ['channels', 'detail'] });
+      const previousVideos = qc.getQueriesData({ queryKey: ['videos', 'detail'] });
+
+      // Optimistically update channel details
+      qc.setQueriesData({ queryKey: ['channels', 'detail'] }, (old) => {
+        if (!old) return old;
+        if (old.id === channelId || old._id === channelId) {
+          const nextSub = !old.isSubscribed;
+          return {
+            ...old,
+            isSubscribed: nextSub,
+            subscribersCount: Math.max(0, (old.subscribersCount || 0) + (nextSub ? 1 : -1)),
+          };
+        }
+        return old;
+      });
+
+      // Optimistically update video owner if matches channel
+      qc.setQueriesData({ queryKey: ['videos', 'detail'] }, (old) => {
+        if (!old?.owner) return old;
+        if (old.owner.id === channelId || old.owner._id === channelId) {
+          return {
+            ...old,
+            owner: {
+              ...old.owner,
+              isSubscribed: !old.owner.isSubscribed,
+            },
+          };
+        }
+        return old;
+      });
+
+      return { previousChannels, previousVideos };
+    },
+    onError: (_err, _channelId, context) => {
+      if (context?.previousChannels) {
+        context.previousChannels.forEach(([key, data]) => qc.setQueryData(key, data));
+      }
+      if (context?.previousVideos) {
+        context.previousVideos.forEach(([key, data]) => qc.setQueryData(key, data));
+      }
+    },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: queryKeys.channels.all });
       qc.invalidateQueries({ queryKey: ['subscriptions'] });
+      qc.invalidateQueries({ queryKey: ['videos', 'detail'] });
     },
   });
 }

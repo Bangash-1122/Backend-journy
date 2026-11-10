@@ -3,6 +3,7 @@ import {
 } from 'react';
 
 export const HomePage = lazy(() => import('@/pages/HomePage'));
+export const ShortsPage = lazy(() => import('@/pages/ShortsPage'));
 export const WatchPage = lazy(() => import('@/pages/WatchPage'));
 export const SearchPage = lazy(() => import('@/pages/SearchPage'));
 export const ChannelPage = lazy(() => import('@/pages/ChannelPage'));

@@ -6,6 +6,7 @@ import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
 import {
     HomePage,
+    ShortsPage,
     WatchPage,
     SearchPage,
     ChannelPage,
@@ -30,6 +31,10 @@ export const routes = [{
         children: [{
                 path: '/',
                 element: < HomePage / >
+            },
+            {
+                path: '/shorts',
+                element: < ShortsPage / >
             },
             {
                 path: '/watch/:videoId',

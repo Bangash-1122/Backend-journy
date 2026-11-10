@@ -4,6 +4,9 @@ export const queryKeys = {
     list: (filters) => ['videos', 'list', filters],
     detail: (id) => ['videos', 'detail', id],
     search: (filters) => ['videos', 'search', filters],
+    shorts: (filters) => ['videos', 'shorts', filters],
+    recommendations: (filters) => ['videos', 'recommendations', filters],
+    related: (id) => ['videos', 'related', id],
   },
   comments: {
     all: ['comments'],

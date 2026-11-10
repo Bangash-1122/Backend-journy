@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Library, Plus, Search, Users } from 'lucide-react';
+import { Flame, Home, Library, Plus, Users } from 'lucide-react';
 
 const items = [
   { to: '/', label: 'Home', icon: Home },
-  { to: '/search', label: 'Search', icon: Search },
+  { to: '/shorts', label: 'Shorts', icon: Flame },
   { to: '/upload', label: 'Upload', icon: Plus, center: true },
   { to: '/subscriptions', label: 'Subscriptions', icon: Users },
   { to: '/library', label: 'Library', icon: Library },

@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { Share2, ThumbsDown, ThumbsUp, ListPlus, Flag } from 'lucide-react';
 import { toast } from 'sonner';
-import { useVideo, useVideos, useToggleLike } from '@/hooks/useVideos';
+import { useVideo, useRelatedVideos, useToggleLike } from '@/hooks/useVideos';
 import { useAuthStore } from '@/store/authStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useUiStore } from '@/store/uiStore';
@@ -23,17 +23,16 @@ export default function WatchPage() {
   const { videoId } = useParams();
   const navigate = useNavigate();
   const videoQuery = useVideo(videoId);
-  const listQuery = useVideos({ limit: 12 });
+  const relatedQuery = useRelatedVideos(videoId);
   const like = useToggleLike();
   const user = useAuthStore((s) => s.user);
   const autoplay = usePlayerStore((s) => s.autoplay);
   const setAutoplay = usePlayerStore((s) => s.setAutoplay);
   const openModal = useUiStore((s) => s.openModal);
   const [expanded, setExpanded] = useState(false);
-  const [liked, setLiked] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const video = videoQuery.data;
-  const upNext = (listQuery.data?.pages.flatMap((p) => p.items) ?? []).filter((v) => v.id !== videoId);
+  const upNext = (relatedQuery.data || []).filter((v) => v.id !== videoId);
 
   if (videoQuery.isLoading) {
     return <Skeleton className="aspect-video w-full" />;
@@ -52,6 +51,7 @@ export default function WatchPage() {
       <div className="min-w-0 flex-1">
         <VideoPlayer
           key={video.id}
+          videoId={video.id}
           src={video.videoFile}
           poster={video.thumbnail}
           onEnded={() => {
@@ -68,30 +68,28 @@ export default function WatchPage() {
               <p className="font-semibold">{video.owner?.fullName}</p>
               <p className="text-xs text-muted">{formatViews(video.views)} views • {timeAgo(video.createdAt)}</p>
             </div>
-            <SubscribeButton channelId={video.owner?.id} subscribed={false} />
+            <SubscribeButton channelId={video.owner?.id} subscribed={Boolean(video.owner?.isSubscribed)} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex overflow-hidden rounded-full border border-border bg-surface">
               <button
-                className={`inline-flex h-10 items-center gap-2 px-4 text-sm ${liked ? 'text-brand font-bold' : ''}`}
+                className={`inline-flex h-10 items-center gap-2 px-4 text-sm transition-colors ${
+                  video.isLiked ? 'text-brand font-bold' : 'hover:bg-elevated'
+                }`}
                 onClick={async () => {
                   if (!user) return toast.warning('You must sign in to like');
-                  setLiked((v) => !v);
                   try {
-                    const res = await like.mutateAsync(video.id);
-                    if (res && typeof res.isLiked === 'boolean') {
-                      setLiked(res.isLiked);
-                    }
+                    await like.mutateAsync(video.id);
                   } catch {
-                    setLiked((v) => !v);
-                    toast.error('Could not like video');
+                    toast.error('Could not update like');
                   }
                 }}
               >
-                <ThumbsUp size={18} /> {formatViews((video.likes || 0) + (liked ? 1 : 0))}
+                <ThumbsUp size={18} fill={video.isLiked ? 'currentColor' : 'none'} />
+                {formatViews(video.likes || 0)}
               </button>
               <span className="w-px bg-border" />
-              <button className="inline-flex h-10 items-center gap-2 px-4 text-sm" onClick={() => toast.info('Dislike is local-only in this backend')}>
+              <button className="inline-flex h-10 items-center gap-2 px-4 text-sm hover:bg-elevated" onClick={() => toast.info('Dislike is local-only in this backend')}>
                 <ThumbsDown size={18} />
               </button>
             </div>

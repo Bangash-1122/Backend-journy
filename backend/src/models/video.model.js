@@ -33,8 +33,30 @@ const videoSchema = new Schema({
     owner: {
         type: Schema.Types.ObjectId,
         ref: "User",
-    }
-}, {timestamps: true})
+    },
+    isShort: {
+        type: Boolean,
+        default: false,
+        index: true,
+    },
+    aspectRatio: {
+        type: String,
+        default: "16:9",
+    },
+    category: {
+        type: String,
+        default: "All",
+        index: true,
+    },
+    tags: [{
+        type: String,
+        trim: true,
+    }],
+}, {timestamps: true});
+
+videoSchema.index({ isPublished: 1, isShort: 1, createdAt: -1 });
+videoSchema.index({ isPublished: 1, category: 1, views: -1 });
+videoSchema.index({ owner: 1, isPublished: 1 });
 
 videoSchema.plugin(mongooseAggregatePaginate);
 
