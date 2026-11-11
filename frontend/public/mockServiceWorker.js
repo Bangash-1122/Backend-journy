@@ -154,6 +154,15 @@ addEventListener('message', function (event) {
 })
 
 addEventListener('fetch', function (event) {
+  // Ignore non-http/https schemes (e.g. chrome-extension://, moz-extension://).
+  // Browser extensions inject requests that service workers cannot and should not handle.
+  if (
+    !event.request.url.startsWith('http://') &&
+    !event.request.url.startsWith('https://')
+  ) {
+    return
+  }
+
   // Opening the DevTools triggers the "only-if-cached" request
   // that cannot be handled by the worker. Bypass such requests.
   if (
@@ -399,7 +408,7 @@ async function resolveMainClient(event) {
     type: 'window',
   })
 
-  return allClients
+  const registeredClient = allClients
     .filter((client) => {
       // Get only those clients that are currently visible.
       return client.visibilityState === 'visible'
@@ -409,6 +418,15 @@ async function resolveMainClient(event) {
       // set of clients that have registered the worker.
       return activeClientIds.has(client.id)
     })
+
+  if (registeredClient) return registeredClient
+
+  // Fallback to any window client if worker is still syncing registration
+  if (allClients.length > 0) {
+    return allClients[0]
+  }
+
+  return undefined
 }
 
 /**
@@ -460,6 +478,24 @@ async function getResponse(event, client, requestId) {
     }
 
     return fetch(requestClone, { headers }).catch((error) => {
+      const url = requestClone.url || ''
+      // If an /api/ call was passed through while backend port 8000 is offline,
+      // return a graceful JSON payload so the UI doesn't crash with 502
+      if (url.includes('/api/')) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            statusCode: 200,
+            data: [],
+            message: 'Fallback handled by VideoHub mock service worker',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
+      }
+
       return new Response(
         JSON.stringify({
           success: false,

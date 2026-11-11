@@ -1,7 +1,7 @@
 import { HttpResponse, http } from 'msw';
 import { db } from './seed';
 
-const VIDEO_PLACEHOLDER = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+const VIDEO_PLACEHOLDER = 'https://res.cloudinary.com/demo/video/upload/samples/cld-sample-video.mp4';
 
 const ok = (data, message = 'OK', status = 200) =>
   HttpResponse.json({ success: true, statusCode: status, data, message }, { status });
@@ -138,12 +138,28 @@ export const handlers = [
   }),
 
   http.get('*/api/v1/videos/:videoId', ({ params }) => {
-    const video = db.videos.find((v) => v._id === params.videoId);
-    if (!video) return fail('Video not found', 404);
-    video.views += 1;
+    let video = db.videos.find((v) => v._id === params.videoId || v.id === params.videoId);
+    if (!video) {
+      video = {
+        _id: params.videoId,
+        title: `Uploaded Video (${params.videoId})`,
+        description: 'Uploaded video playback in VideoHub demo mode.',
+        thumbnail: `https://picsum.photos/seed/${params.videoId}/640/360`,
+        videoFile: VIDEO_PLACEHOLDER,
+        duration: 120,
+        views: 1,
+        isPublished: true,
+        category: 'All',
+        likes: 0,
+        createdAt: new Date().toISOString(),
+        owner: db.session.user || db.users[0],
+      };
+      db.videos.unshift(video);
+    }
+    video.views = (video.views || 0) + 1;
     return ok({
       ...video,
-      isLiked: db.likes.has(video._id),
+      isLiked: db.likes.has(video._id || video.id),
     });
   }),
 

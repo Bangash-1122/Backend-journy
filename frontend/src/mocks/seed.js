@@ -1,4 +1,4 @@
-const VIDEO_SRC = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+const VIDEO_SRC = 'https://res.cloudinary.com/demo/video/upload/samples/cld-sample-video.mp4';
 
 export const demoUser = {
   _id: 'u-demo',
