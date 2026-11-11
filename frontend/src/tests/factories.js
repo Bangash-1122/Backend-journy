@@ -17,7 +17,7 @@ export function makeVideo(overrides = {}) {
         id: 'video-1',
         title: 'Building Modern React Apps',
         description: 'A deep dive into React and Vite development.',
-        videoFile: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        videoFile: 'https://res.cloudinary.com/demo/video/upload/samples/cld-sample-video.mp4',
         thumbnail: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=640',
         duration: 320,
         views: 45000,

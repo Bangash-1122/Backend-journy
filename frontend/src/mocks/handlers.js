@@ -1,7 +1,7 @@
 import { HttpResponse, http } from 'msw';
-import { db } from './seed';
+import { db } from './seed.js';
 
-const VIDEO_PLACEHOLDER = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+const VIDEO_PLACEHOLDER = 'https://res.cloudinary.com/demo/video/upload/samples/cld-sample-video.mp4';
 
 const ok = (data, message = 'OK', status = 200) =>
   HttpResponse.json({ success: true, statusCode: status, data, message }, { status });
@@ -82,14 +82,20 @@ export const handlers = [
     const url = new URL(request.url);
     const query = (url.searchParams.get('query') || '').toLowerCase();
     const userId = url.searchParams.get('userId');
-    let list = [...db.videos];
-    if (userId) list = list.filter((v) => v.owner?._id === userId);
+    const seen = new Set();
+    let list = db.videos.filter((v) => {
+      const id = v._id || v.id;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    if (userId) list = list.filter((v) => (v.owner?._id || v.owner?.id) === userId);
     if (query) {
       list = list.filter(
         (v) =>
           v.title.toLowerCase().includes(query) ||
           v.description.toLowerCase().includes(query) ||
-          v.owner.username.toLowerCase().includes(query),
+          (v.owner?.username || '').toLowerCase().includes(query),
       );
     }
     const sortBy = url.searchParams.get('sortBy');
@@ -97,29 +103,160 @@ export const handlers = [
     return ok(paginate(list, url));
   }),
 
+  http.get('*/api/v1/videos/feed/shorts', ({ request }) => {
+    const url = new URL(request.url);
+    const seen = new Set();
+    const shorts = db.videos
+      .filter((v) => {
+        const id = v._id || v.id;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return v.isShort || v.duration <= 60;
+      })
+      .map((v) => ({
+        ...v,
+        isLiked: db.likes.has(v._id || v.id),
+      }));
+    return ok(paginate(shorts, url));
+  }),
+
+  http.get('*/api/v1/videos/feed/recommendations', ({ request }) => {
+    const url = new URL(request.url);
+    const category = url.searchParams.get('category');
+    const seen = new Set();
+    let list = db.videos.filter((v) => {
+      const id = v._id || v.id;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return !v.isShort;
+    });
+    if (category && category !== 'All') {
+      list = list.filter((v) => v.category?.toLowerCase() === category.toLowerCase());
+    }
+    // Score by views and recency
+    list.sort((a, b) => b.views - a.views);
+    return ok(paginate(list, url));
+  }),
+
+  http.get('*/api/v1/videos/related/:videoId', ({ params, request }) => {
+    const url = new URL(request.url);
+    const limit = Number(url.searchParams.get('limit') || 12);
+    const target = db.videos.find((v) => v._id === params.videoId);
+    let list = db.videos.filter((v) => v._id !== params.videoId && !v.isShort);
+    if (target) {
+      list.sort((a, b) => {
+        const aCatMatch = a.category === target.category ? 10 : 0;
+        const bCatMatch = b.category === target.category ? 10 : 0;
+        const aOwnerMatch = a.owner?._id === target.owner?._id ? 5 : 0;
+        const bOwnerMatch = b.owner?._id === target.owner?._id ? 5 : 0;
+        return (bCatMatch + bOwnerMatch + b.views / 100000) - (aCatMatch + aOwnerMatch + a.views / 100000);
+      });
+    }
+    return ok(list.slice(0, limit));
+  }),
+
   http.get('*/api/v1/videos/:videoId', ({ params }) => {
-    const video = db.videos.find((v) => v._id === params.videoId);
-    if (!video) return fail('Video not found', 404);
-    video.views += 1;
-    return ok(video);
+    let video = db.videos.find((v) => v._id === params.videoId || v.id === params.videoId);
+    if (!video) {
+      video = {
+        _id: params.videoId,
+        id: params.videoId,
+        title: `Uploaded Video (${params.videoId})`,
+        description: 'Uploaded video playback in VideoHub demo mode.',
+        thumbnail: `https://picsum.photos/seed/${params.videoId}/640/360`,
+        videoFile: VIDEO_PLACEHOLDER,
+        duration: 120,
+        views: 1,
+        isPublished: true,
+        category: 'All',
+        likes: 0,
+        createdAt: new Date().toISOString(),
+        owner: db.session?.user || db.users[0],
+      };
+      db.videos.unshift(video);
+    }
+    video.views = (video.views || 0) + 1;
+    const ownerId = video.owner?._id || video.owner?.id;
+    return ok({
+      ...video,
+      id: video.id || video._id,
+      isLiked: db.likes.has(video._id || video.id),
+      owner: video.owner
+        ? {
+            ...video.owner,
+            id: ownerId,
+            isSubscribed: db.subscriptions.has(ownerId),
+          }
+        : db.users[0],
+    });
   }),
 
   http.post('*/api/v1/videos', async ({ request }) => {
     const form = await request.formData();
+    const title = String(form.get('title') || 'Untitled Video');
+    const description = String(form.get('description') || '');
+    const videoFile = form.get('videoFile');
+    const thumbnailFile = form.get('thumbnail');
+
+    let videoUrl = VIDEO_PLACEHOLDER;
+    if (typeof window !== 'undefined' && videoFile instanceof Blob) {
+      try {
+        videoUrl = URL.createObjectURL(videoFile);
+      } catch {
+        videoUrl = VIDEO_PLACEHOLDER;
+      }
+    }
+
+    let thumbnailUrl = `https://picsum.photos/seed/${Date.now()}/640/360`;
+    if (typeof window !== 'undefined' && thumbnailFile instanceof Blob) {
+      try {
+        thumbnailUrl = URL.createObjectURL(thumbnailFile);
+      } catch {
+        thumbnailUrl = `https://picsum.photos/seed/${Date.now()}/640/360`;
+      }
+    }
+
+    const isShort = Boolean(
+      form.get('isShort') === 'true' ||
+      title.toLowerCase().includes('#shorts') ||
+      description.toLowerCase().includes('#shorts')
+    );
+
+    const videoId = `v-${Date.now()}`;
     const video = {
-      _id: `v-${Date.now()}`,
-      title: String(form.get('title')),
-      description: String(form.get('description')),
-      thumbnail: 'https://picsum.photos/seed/new-upload/640/360',
-      videoFile: VIDEO_PLACEHOLDER,
-      duration: 120,
+      _id: videoId,
+      id: videoId,
+      title,
+      description,
+      thumbnail: thumbnailUrl,
+      videoFile: videoUrl,
+      duration: isShort ? 30 : 120,
       views: 0,
+      likes: 0,
       isPublished: true,
-      category: 'All',
+      category: String(form.get('category') || 'All'),
+      isShort,
+      aspectRatio: isShort ? '9:16' : '16:9',
       createdAt: new Date().toISOString(),
-      owner: db.session.user,
+      owner: db.session?.user || db.users[0],
     };
     db.videos.unshift(video);
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const persisted = {
+          ...video,
+          videoFile: videoUrl.startsWith('blob:') ? VIDEO_PLACEHOLDER : videoUrl,
+          thumbnail: thumbnailUrl.startsWith('blob:') ? `https://picsum.photos/seed/${videoId}/640/360` : thumbnailUrl,
+        };
+        const raw = localStorage.getItem('videohub_user_uploads') || '[]';
+        const existing = JSON.parse(raw);
+        localStorage.setItem('videohub_user_uploads', JSON.stringify([persisted, ...existing.slice(0, 20)]));
+      } catch (e) {
+        console.warn('Could not persist uploaded video:', e);
+      }
+    }
+
     return ok(video, 'Video published successfully', 201);
   }),
 
@@ -195,12 +332,16 @@ export const handlers = [
   http.post('*/api/v1/likes/toggle/t/:tweetId', () => ok({}, 'Tweet liked successfully', 201)),
 
   http.post('*/api/v1/likes/toggle/v/:videoId', ({ params }) => {
-    if (db.likes.has(params.videoId)) {
-      db.likes.delete(params.videoId);
-      return ok({ isLiked: false }, 'Video unliked successfully');
+    const videoId = params.videoId;
+    const video = db.videos.find((v) => (v._id || v.id) === videoId);
+    if (db.likes.has(videoId)) {
+      db.likes.delete(videoId);
+      if (video) video.likes = Math.max(0, (video.likes || 1) - 1);
+      return ok({ isLiked: false, likes: video?.likes ?? 0 }, 'Video unliked successfully');
     }
-    db.likes.add(params.videoId);
-    return ok({ isLiked: true }, 'Video liked successfully', 201);
+    db.likes.add(videoId);
+    if (video) video.likes = (video.likes || 0) + 1;
+    return ok({ isLiked: true, likes: video?.likes ?? 1 }, 'Video liked successfully', 201);
   }),
 
   http.get('*/api/v1/likes/videos', () =>
@@ -208,11 +349,22 @@ export const handlers = [
   ),
 
   http.post('*/api/v1/subscriptions/c/:channelId', ({ params }) => {
-    if (db.subscriptions.has(params.channelId)) {
-      db.subscriptions.delete(params.channelId);
+    const channelId = params.channelId;
+    if (db.subscriptions.has(channelId)) {
+      db.subscriptions.delete(channelId);
+      db.videos.forEach((v) => {
+        if ((v.owner?._id || v.owner?.id) === channelId && v.owner) {
+          v.owner.isSubscribed = false;
+        }
+      });
       return ok({ isSubscribed: false }, 'subscription removed successfully');
     }
-    db.subscriptions.add(params.channelId);
+    db.subscriptions.add(channelId);
+    db.videos.forEach((v) => {
+      if ((v.owner?._id || v.owner?.id) === channelId && v.owner) {
+        v.owner.isSubscribed = true;
+      }
+    });
     return ok({ isSubscribed: true }, 'Subscribed to channel successfully', 201);
   }),
 
@@ -268,7 +420,17 @@ export const handlers = [
   http.get('*/api/v1/dashboard/stats/:channelId', () =>
     ok({ totalVideos: db.videos.length, totalVideoViews: 4280000, totalSubscribers: 18200, totalLikeCount: 94000 }),
   ),
-  http.get('*/api/v1/dashboard/videos/:channelId', () => ok(db.videos.filter((v) => v.owner?._id === db.session.user._id).concat(db.videos.slice(0, 6)))),
+  http.get('*/api/v1/dashboard/stats', () =>
+    ok({ totalVideos: db.videos.length, totalVideoViews: 4280000, totalSubscribers: 18200, totalLikeCount: 94000 }),
+  ),
+  http.get('*/api/v1/dashboard/videos/:channelId', () => ok(db.videos.filter((v) => (v.owner?._id || v.owner?.id) === (db.session?.user?._id || 'u-demo')).concat(db.videos.slice(0, 6)))),
+  http.get('*/api/v1/dashboard/videos', () => ok(db.videos.filter((v) => (v.owner?._id || v.owner?.id) === (db.session?.user?._id || 'u-demo')).concat(db.videos.slice(0, 6)))),
+  http.get('*/api/v1/dashboard/analytics/:channelId', () => {
+    return ok([], 'Analytics fetched');
+  }),
+  http.get('*/api/v1/dashboard/analytics', () => {
+    return ok([], 'Analytics fetched');
+  }),
 
   http.get('*/api/v1/tweets/user/:userId', () => ok(db.tweets)),
   http.post('*/api/v1/tweets', async ({ request }) => {
@@ -290,7 +452,7 @@ export const handlers = [
   }),
 
   // Fallback handler for any unmatched /api/v1/* calls to prevent network failures in mock mode
-  http.all('*/api/v1/*', ({ request }) => {
-    return ok({}, `Mock fallback for ${request.method} ${request.url}`);
+  http.all('*/api/v1/**', ({ request }) => {
+    return ok([], `Mock fallback for ${request.method} ${request.url}`);
   }),
 ];

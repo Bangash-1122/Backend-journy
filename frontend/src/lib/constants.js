@@ -39,6 +39,7 @@ export const DURATION_FILTERS = [
 
 export const SIDEBAR_MAIN = [
   { to: '/', label: 'Home', icon: 'home' },
+  { to: '/shorts', label: 'Shorts', icon: 'shorts' },
   { to: '/subscriptions', label: 'Subscriptions', icon: 'subscriptions', auth: true },
 ];
 

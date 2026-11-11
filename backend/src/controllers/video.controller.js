@@ -8,6 +8,12 @@ import {
     User
 } from "../models/user.model.js";
 import {
+    Like
+} from "../models/like.model.js";
+import {
+    Subscription
+} from "../models/subscription.model.js";
+import {
     ApiError
 } from "../utils/ApiError.js";
 import {
@@ -113,7 +119,9 @@ const getAllVideos = asyncHandler(async (req, res) => {
 const publishAVideo = asyncHandler(async (req, res) => {
     const {
         title,
-        description
+        description,
+        category = "All",
+        tags = ""
     } = req.body;
 
     if (!title || title.trim() === "") {
@@ -129,36 +137,69 @@ const publishAVideo = asyncHandler(async (req, res) => {
     if (!videoFileLocalPath) {
         throw new ApiError(400, "Video file is required");
     }
-    if (!thumbnailLocalPath) {
-        throw new ApiError(400, "Thumbnail is required");
-    }
 
     let videoFile;
     let thumbnail;
+    let thumbnailUrl = "";
 
     try {
-        videoFile = await uploadOnCloudinary(videoFileLocalPath);
-        if (!videoFile?.url) {
+        videoFile = await uploadOnCloudinary(videoFileLocalPath, {
+            resource_type: "video",
+        });
+        if (!videoFile?.secure_url && !videoFile?.url) {
             throw new ApiError(500, "Video file upload to Cloudinary failed");
         }
 
-        thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-        if (!thumbnail?.url) {
-            // Clean up the already uploaded video if thumbnail upload fails
-            await deleteFromCloudinary(videoFile.url, "video");
-            throw new ApiError(500, "Thumbnail upload to Cloudinary failed");
+        if (thumbnailLocalPath) {
+            thumbnail = await uploadOnCloudinary(thumbnailLocalPath, {
+                resource_type: "image",
+            });
+            if (thumbnail?.secure_url || thumbnail?.url) {
+                thumbnailUrl = thumbnail.secure_url || thumbnail.url;
+            }
+        }
+
+        // If no thumbnail was uploaded, automatically use Cloudinary's auto-generated video poster jpg
+        if (!thumbnailUrl && (videoFile.secure_url || videoFile.url)) {
+            const rawUrl = videoFile.secure_url || videoFile.url;
+            thumbnailUrl = rawUrl.replace(/\.[a-zA-Z0-9]+$/, '.jpg');
         }
     } catch (err) {
-        if (videoFile?.url) await deleteFromCloudinary(videoFile.url, "video");
+        if (videoFile?.secure_url || videoFile?.url) {
+            await deleteFromCloudinary(videoFile.secure_url || videoFile.url, "video");
+        }
         throw err;
     }
 
+    const duration = Number(videoFile.duration) || 0;
+    const width = Number(videoFile.width) || 0;
+    const height = Number(videoFile.height) || 0;
+    const isVertical = height > 0 && width > 0 && height > width;
+    const isShort = duration > 0 && duration <= 60 && (isVertical || req.body.isShort === "true" || req.body.isShort === true);
+    const aspectRatio = isVertical ? "9:16" : "16:9";
+
+    // Ensure secure HTTPS and browser-compatible MP4 format delivery
+    let videoDeliveryUrl = videoFile.secure_url || videoFile.url;
+    if (videoFile.format && videoFile.format.toLowerCase() !== 'mp4' && videoDeliveryUrl.includes('/upload/')) {
+        videoDeliveryUrl = videoDeliveryUrl.replace(/\.[a-zA-Z0-9]+$/, '.mp4');
+    }
+
+    const parsedTags = Array.isArray(tags)
+        ? tags
+        : typeof tags === 'string'
+        ? tags.split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
+
     const video = await Video.create({
-        videoFile: videoFile.url,
-        thumbnail: thumbnail.url,
+        videoFile: videoDeliveryUrl,
+        thumbnail: thumbnailUrl,
         title: title.trim(),
         description: description.trim(),
-        duration: videoFile.duration || 0,
+        duration: Math.round(duration),
+        category: category.trim() || "All",
+        tags: parsedTags,
+        isShort: Boolean(isShort),
+        aspectRatio,
         owner: req.user._id,
         isPublished: true
     });
@@ -206,8 +247,31 @@ const getVideoById = asyncHandler(async (req, res) => {
         });
     }
 
+    const likesCount = await Like.countDocuments({ video: video._id });
+    let isLiked = false;
+    let isSubscribed = false;
+
+    if (req.user?._id) {
+        const [likeExists, subExists] = await Promise.all([
+            Like.exists({ video: video._id, likedBy: req.user._id }),
+            video.owner?._id ? Subscription.exists({ channel: video.owner._id, user: req.user._id }) : false,
+        ]);
+        isLiked = Boolean(likeExists);
+        isSubscribed = Boolean(subExists);
+    }
+
+    const videoData = {
+        ...video.toObject(),
+        likes: likesCount,
+        isLiked,
+        owner: video.owner ? {
+            ...video.owner.toObject(),
+            isSubscribed,
+        } : null,
+    };
+
     return res.status(200).json(
-        new ApiResponse(200, video, "Video fetched successfully")
+        new ApiResponse(200, videoData, "Video fetched successfully")
     );
 });
 
@@ -327,11 +391,211 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     );
 });
 
+const getShortsVideos = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+    const limitNumber = Math.min(20, Math.max(1, parseInt(limit, 10) || 10));
+
+    const pipeline = [
+        {
+            $match: {
+                isPublished: true,
+                $or: [
+                    { isShort: true },
+                    { duration: { $gt: 0, $lte: 60 } }
+                ]
+            }
+        },
+        {
+            $sort: { createdAt: -1 }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "video",
+                as: "likes"
+            }
+        },
+        {
+            $lookup: {
+                from: "comments",
+                localField: "_id",
+                foreignField: "video",
+                as: "comments"
+            }
+        },
+        {
+            $addFields: {
+                owner: { $first: "$owner" },
+                likesCount: { $size: "$likes" },
+                commentsCount: { $size: "$comments" },
+                isLiked: req.user?._id
+                    ? {
+                        $in: [
+                            new mongoose.Types.ObjectId(req.user._id),
+                            "$likes.likedBy"
+                        ]
+                    }
+                    : false
+            }
+        },
+        {
+            $project: {
+                likes: 0,
+                comments: 0
+            }
+        }
+    ];
+
+    const aggregate = Video.aggregate(pipeline);
+    const shorts = await Video.aggregatePaginate(aggregate, {
+        page: pageNumber,
+        limit: limitNumber
+    });
+
+    return res.status(200).json(
+        new ApiResponse(200, shorts, "Shorts videos fetched successfully")
+    );
+});
+
+const getRecommendedVideos = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 12, category } = req.query;
+    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+    const limitNumber = Math.min(50, Math.max(1, parseInt(limit, 10) || 12));
+
+    const matchStage = {
+        isPublished: true,
+        isShort: { $ne: true }
+    };
+
+    if (category && category !== "All") {
+        matchStage.category = category;
+    }
+
+    const pipeline = [
+        { $match: matchStage },
+        {
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                owner: { $first: "$owner" }
+            }
+        },
+        {
+            $sort: { views: -1, createdAt: -1 }
+        }
+    ];
+
+    const aggregate = Video.aggregate(pipeline);
+    const recommendations = await Video.aggregatePaginate(aggregate, {
+        page: pageNumber,
+        limit: limitNumber
+    });
+
+    return res.status(200).json(
+        new ApiResponse(200, recommendations, "Recommended videos fetched successfully")
+    );
+});
+
+const getRelatedVideos = asyncHandler(async (req, res) => {
+    const { videoId } = req.params;
+    const { limit = 12 } = req.query;
+    const limitNumber = Math.min(24, Math.max(1, parseInt(limit, 10) || 12));
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
+
+    const currentVideo = await Video.findById(videoId).select("category tags owner");
+    if (!currentVideo) {
+        throw new ApiError(404, "Video not found");
+    }
+
+    const videoObjectId = new mongoose.Types.ObjectId(videoId);
+    const matchConditions = [
+        { isPublished: true },
+        { _id: { $ne: videoObjectId } }
+    ];
+
+    const relevanceOr = [];
+    if (currentVideo.category && currentVideo.category !== "All") {
+        relevanceOr.push({ category: currentVideo.category });
+    }
+    if (currentVideo.tags && currentVideo.tags.length > 0) {
+        relevanceOr.push({ tags: { $in: currentVideo.tags } });
+    }
+    if (currentVideo.owner) {
+        relevanceOr.push({ owner: currentVideo.owner });
+    }
+
+    if (relevanceOr.length > 0) {
+        matchConditions.push({ $or: relevanceOr });
+    }
+
+    let relatedVideos = await Video.find({ $and: matchConditions })
+        .sort({ views: -1, createdAt: -1 })
+        .limit(limitNumber)
+        .populate("owner", "username fullName avatar");
+
+    if (relatedVideos.length < limitNumber) {
+        const existingIds = [videoObjectId, ...relatedVideos.map((v) => v._id)];
+        const fallback = await Video.find({
+            isPublished: true,
+            _id: { $nin: existingIds }
+        })
+            .sort({ views: -1, createdAt: -1 })
+            .limit(limitNumber - relatedVideos.length)
+            .populate("owner", "username fullName avatar");
+
+        relatedVideos = [...relatedVideos, ...fallback];
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, relatedVideos, "Related videos fetched successfully")
+    );
+});
+
 export {
     getAllVideos,
     publishAVideo,
     getVideoById,
     updateVideo,
     deleteVideo,
-    togglePublishStatus
+    togglePublishStatus,
+    getShortsVideos,
+    getRecommendedVideos,
+    getRelatedVideos
 };

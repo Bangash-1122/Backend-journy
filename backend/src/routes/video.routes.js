@@ -6,6 +6,9 @@ import {
     publishAVideo,
     togglePublishStatus,
     updateVideo,
+    getShortsVideos,
+    getRecommendedVideos,
+    getRelatedVideos
 } from "../controllers/video.controller.js";
 import { verifyJWT, verifyJWTOptional } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -14,6 +17,9 @@ const router = Router();
 
 // Public / Optional-auth routes
 router.route("/").get(verifyJWTOptional, getAllVideos);
+router.route("/feed/recommendations").get(verifyJWTOptional, getRecommendedVideos);
+router.route("/feed/shorts").get(verifyJWTOptional, getShortsVideos);
+router.route("/related/:videoId").get(verifyJWTOptional, getRelatedVideos);
 router.route("/:videoId").get(verifyJWTOptional, getVideoById);
 
 // Protected routes (Require authentication)

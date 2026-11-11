@@ -48,3 +48,28 @@ export async function fetchLikedVideos({ signal } = {}) {
   const rows = Array.isArray(data.data) ? data.data : [];
   return rows.map((row) => mapVideo(row.video || row)).filter(Boolean);
 }
+
+export async function fetchShorts({ page = 1, limit = 10, signal } = {}) {
+  const { data } = await api.get('/videos/feed/shorts', {
+    params: { page, limit },
+    signal,
+  });
+  return mapPaginatedVideos(data.data);
+}
+
+export async function fetchRecommendedVideos({ page = 1, limit = 12, category, signal } = {}) {
+  const { data } = await api.get('/videos/feed/recommendations', {
+    params: { page, limit, category },
+    signal,
+  });
+  return mapPaginatedVideos(data.data);
+}
+
+export async function fetchRelatedVideos(videoId, { limit = 12, signal } = {}) {
+  const { data } = await api.get(`/videos/related/${videoId}`, {
+    params: { limit },
+    signal,
+  });
+  const rows = Array.isArray(data.data) ? data.data : data.data?.docs || [];
+  return rows.map(mapVideo).filter(Boolean);
+}

@@ -2,8 +2,13 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { ApiError } from "./utils/ApiError.js";
+import { securityHeaders } from "./middlewares/security.middleware.js";
+import { generalLimiter } from "./middlewares/rateLimiter.middleware.js";
 
 const app = express();
+
+app.use(securityHeaders);
+app.use(generalLimiter);
 
 const corsOrigin = process.env.CORS_ORIGIN;
 app.use(

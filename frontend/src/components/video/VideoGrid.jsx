@@ -15,7 +15,7 @@ export default function VideoGrid({ videos = [], loading, count = 8 }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {videos.map((video, i) => (
-        <VideoCard key={video.id} video={video} index={i} />
+        <VideoCard key={`${video.id || video._id || i}-${i}`} video={video} index={i} />
       ))}
     </div>
   );

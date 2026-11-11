@@ -16,9 +16,9 @@ export default function StudioAnalytics() {
   const [range, setRange] = useState('7D');
   const user = useAuthStore((s) => s.user);
   const stats = useStudioStats(user?.id);
-  const analytics = useStudioAnalytics(range, user?.id);
+  const analytics = useStudioAnalytics(range);
   const videos = useStudioVideos(user?.id);
-  const points = analytics.data?.points || [];
+  const points = Array.isArray(analytics.data?.points) ? analytics.data.points : [];
   const s = stats.data || {};
 
   if (!analytics.isLoading && !points.length) {

@@ -45,9 +45,30 @@ export function useAddToPlaylist(userId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ playlistId, videoId }) => addVideoToPlaylist(playlistId, videoId),
-    onSuccess: (_, vars) => {
+    onMutate: async ({ playlistId, videoId }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.playlists.detail(playlistId) });
+      const previousPlaylist = qc.getQueryData(queryKeys.playlists.detail(playlistId));
+      const videoDetail = qc.getQueryData(queryKeys.videos.detail(videoId));
+
+      if (previousPlaylist && videoDetail) {
+        qc.setQueryData(queryKeys.playlists.detail(playlistId), {
+          ...previousPlaylist,
+          videos: [...(previousPlaylist.videos || []), videoDetail],
+        });
+      }
+
+      return { previousPlaylist, playlistId };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousPlaylist && context?.playlistId) {
+        qc.setQueryData(queryKeys.playlists.detail(context.playlistId), context.previousPlaylist);
+      }
+    },
+    onSettled: (_, __, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.playlists.mine(userId) });
-      qc.invalidateQueries({ queryKey: queryKeys.playlists.detail(vars.playlistId) });
+      if (vars?.playlistId) {
+        qc.invalidateQueries({ queryKey: queryKeys.playlists.detail(vars.playlistId) });
+      }
     },
   });
 }
@@ -56,9 +77,29 @@ export function useRemoveFromPlaylist(userId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ playlistId, videoId }) => removeVideoFromPlaylist(playlistId, videoId),
-    onSuccess: (_, vars) => {
+    onMutate: async ({ playlistId, videoId }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.playlists.detail(playlistId) });
+      const previousPlaylist = qc.getQueryData(queryKeys.playlists.detail(playlistId));
+
+      if (previousPlaylist) {
+        qc.setQueryData(queryKeys.playlists.detail(playlistId), {
+          ...previousPlaylist,
+          videos: (previousPlaylist.videos || []).filter((v) => v.id !== videoId && v._id !== videoId),
+        });
+      }
+
+      return { previousPlaylist, playlistId };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousPlaylist && context?.playlistId) {
+        qc.setQueryData(queryKeys.playlists.detail(context.playlistId), context.previousPlaylist);
+      }
+    },
+    onSettled: (_, __, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.playlists.mine(userId) });
-      qc.invalidateQueries({ queryKey: queryKeys.playlists.detail(vars.playlistId) });
+      if (vars?.playlistId) {
+        qc.invalidateQueries({ queryKey: queryKeys.playlists.detail(vars.playlistId) });
+      }
     },
   });
 }

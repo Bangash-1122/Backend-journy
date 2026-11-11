@@ -13,6 +13,8 @@ import TextAreaField from '@/components/forms/TextAreaField';
 import SelectField from '@/components/forms/SelectField';
 import Button from '@/components/ui/Button';
 import { formatBytes } from '@/lib/format';
+import { useAuthStore } from '@/store/authStore';
+import { env } from '@/lib/env';
 
 export default function UploadPage() {
   const navigate = useNavigate();
@@ -38,6 +40,14 @@ export default function UploadPage() {
         return;
       }
     }
+    if (!useAuthStore.getState().user && env.enableMock) {
+      useAuthStore.getState().login(
+        { id: 'u-demo', username: 'videohub', fullName: 'VideoHub Demo', avatar: 'https://i.pravatar.cc/160?img=12' },
+        'demo-token',
+        'demo-refresh',
+      );
+    }
+
     setUploading(true);
     setProgress(0);
     const id = toast.loading('Uploading…');
@@ -47,6 +57,7 @@ export default function UploadPage() {
         thumbnail: thumb,
         title: values.title,
         description: values.description,
+        category: values.category,
         onProgress: (pct) => {
           setProgress(pct);
           if (pct >= 100) {
@@ -54,7 +65,7 @@ export default function UploadPage() {
           }
         },
       });
-      toast.success('Video published', { id });
+      toast.success('Video published successfully!', { id });
       navigate(video?.id ? `/watch/${video.id}` : '/studio/videos');
     } catch (err) {
       toast.error(err.message || 'Upload failed — please try again', { id });

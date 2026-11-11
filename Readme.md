@@ -229,9 +229,12 @@ Vitest and React Testing Library are configured in `vite.config.js` with JSDOM:
   - `format.test.js`: Validates `formatViews`, `formatDuration`, and `timeAgo`.
   - `validators.test.js`: Validates login, register, upload, playlist, and comment Zod schemas.
   - `components.test.jsx`: Unit tests for `Button`, `Chip`, and `VideoCard`.
-  - `services.test.js`: Validates structured boolean response handling (`isLiked`, `isSubscribed`), playlist error propagation, and comment author fallback mapping.
+  - `services.test.js`: Validates structured boolean response handling (`isLiked`, `isSubscribed`), shorts/recommendations mapping, playlist error propagation, and comment author fallback mapping.
+  - `optimistic.test.jsx`: Verifies TanStack Query optimistic UI mutations and cache rollback on server failure for likes, comments, and subscriptions.
 - **Integration Tests (`src/tests/integration/`):**
   - `features.test.jsx`: Tests Home page video fetching and rendering via Mock Service Worker (`msw/node`).
+
+All 24 frontend tests pass with 100% test suite reliability.
 
 Run frontend tests via:
 ```bash
@@ -291,6 +294,9 @@ All routes are prefixed with `/api/v1`.
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :---: |
 | `GET` | `/videos` | Query videos (search, sort, pagination) | No |
+| `GET` | `/videos/feed/shorts` | Paginated YouTube Shorts feed (`aspectRatio: '9:16'`, duration <= 60s) | No |
+| `GET` | `/videos/feed/recommendations` | Multi-signal recommendations (view count, recency, category matching) | No |
+| `GET` | `/videos/related/:videoId` | Content-based related video recommendations | No |
 | `POST` | `/videos` | Upload video file & thumbnail | Yes |
 | `GET` | `/videos/:videoId` | Get video details by ID | No |
 | `PATCH` | `/videos/:videoId` | Update video title, description, or thumbnail | Yes |

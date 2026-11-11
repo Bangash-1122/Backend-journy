@@ -1,4 +1,4 @@
-const VIDEO_SRC = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+const VIDEO_SRC = 'https://res.cloudinary.com/demo/video/upload/samples/cld-sample-video.mp4';
 
 export const demoUser = {
   _id: 'u-demo',
@@ -55,25 +55,58 @@ const titles = [
   ['Live Set — Red Room', 'Music', 'u-4', 990000, 2400],
 ];
 
-export const videos = titles.map(([title, category, ownerId, views, duration], i) => {
-  const owner = users.find((u) => u._id === ownerId);
-  const created = new Date();
-  created.setDate(created.getDate() - (i * 2 + 1));
-  return {
-    _id: `v-${i + 1}`,
-    title,
-    description: `${title}. Shot for VideoHub demo. Category: ${category}. This page works without a live server using MSW seed data.`,
-    thumbnail: `https://picsum.photos/seed/vh-${i + 1}/640/360`,
-    videoFile: VIDEO_SRC,
-    duration,
-    views,
-    isPublished: true,
-    category,
-    likes: Math.round(views / 40),
-    createdAt: created.toISOString(),
-    owner,
-  };
-});
+const shortsData = [
+  ['Quick CSS Grid Tricks', 'Tech', 'u-3', 420000, 28, 'https://picsum.photos/seed/short-1/720/1280'],
+  ['Amazing Latte Art in 30s', 'Cooking', 'u-2', 890000, 32, 'https://picsum.photos/seed/short-2/720/1280'],
+  ['Sunset over Dolomites', 'Travel', 'u-2', 610000, 22, 'https://picsum.photos/seed/short-3/720/1280'],
+  ['Drop the Beat: 808 Bass', 'Music', 'u-4', 1240000, 45, 'https://picsum.photos/seed/short-4/720/1280'],
+  ['Epic Goal in Extra Time', 'Sports', 'u-2', 950000, 19, 'https://picsum.photos/seed/short-5/720/1280'],
+];
+
+export const videos = [
+  ...titles.map(([title, category, ownerId, views, duration], i) => {
+    const owner = users.find((u) => u._id === ownerId);
+    const created = new Date();
+    created.setDate(created.getDate() - (i * 2 + 1));
+    return {
+      _id: `v-${i + 1}`,
+      title,
+      description: `${title}. Shot for VideoHub demo. Category: ${category}. This page works without a live server using MSW seed data.`,
+      thumbnail: `https://picsum.photos/seed/vh-${i + 1}/640/360`,
+      videoFile: VIDEO_SRC,
+      duration,
+      views,
+      isPublished: true,
+      category,
+      isShort: false,
+      aspectRatio: '16:9',
+      likes: Math.round(views / 40),
+      createdAt: created.toISOString(),
+      owner,
+    };
+  }),
+  ...shortsData.map(([title, category, ownerId, views, duration, thumb], i) => {
+    const owner = users.find((u) => u._id === ownerId);
+    const created = new Date();
+    created.setDate(created.getDate() - (i + 1));
+    return {
+      _id: `s-${i + 1}`,
+      title,
+      description: `${title} #shorts #${category.toLowerCase()}`,
+      thumbnail: thumb,
+      videoFile: VIDEO_SRC,
+      duration,
+      views,
+      isPublished: true,
+      category,
+      isShort: true,
+      aspectRatio: '9:16',
+      likes: Math.round(views / 30),
+      createdAt: created.toISOString(),
+      owner,
+    };
+  }),
+];
 
 export const comments = videos.slice(0, 4).flatMap((video, vi) =>
   users.map((user, ui) => ({
@@ -118,9 +151,21 @@ export const tweets = [
   },
 ];
 
+const loadSavedUploads = () => {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    const raw = localStorage.getItem('videohub_user_uploads');
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+};
+
 export const db = {
   users: [...users],
-  videos: [...videos],
+  videos: [...loadSavedUploads(), ...videos],
   comments: [...comments],
   playlists: [...playlists],
   tweets: [...tweets],

@@ -13,7 +13,11 @@ export const usePlayerStore = create(
       autoplay: true,
       setPlaying: (isPlaying) => set({ isPlaying }),
       setVolume: (volume) => set({ volume, muted: volume === 0 }),
-      toggleMuted: () => set((s) => ({ muted: !s.muted })),
+      toggleMuted: () =>
+        set((s) => ({
+          muted: !s.muted,
+          volume: s.muted && s.volume === 0 ? 0.5 : s.volume,
+        })),
       setPlaybackRate: (playbackRate) => set({ playbackRate }),
       setCurrentTime: (currentTime) => set({ currentTime }),
       toggleTheatre: () => set((s) => ({ theatreMode: !s.theatreMode })),
