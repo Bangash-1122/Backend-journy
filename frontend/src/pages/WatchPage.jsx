@@ -1,11 +1,13 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Share2, ThumbsDown, ThumbsUp, ListPlus, Flag } from 'lucide-react';
+import gsap from 'gsap';
 import { toast } from 'sonner';
 import { useVideo, useRelatedVideos, useToggleLike } from '@/hooks/useVideos';
 import { useAuthStore } from '@/store/authStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { useUiStore } from '@/store/uiStore';
+import { env } from '@/lib/env';
 import { formatViews, timeAgo } from '@/lib/format';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import CommentSection from '@/components/video/CommentSection';
@@ -31,6 +33,7 @@ export default function WatchPage() {
   const openModal = useUiStore((s) => s.openModal);
   const [expanded, setExpanded] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const likeIconRef = useRef(null);
   const video = videoQuery.data;
   const upNext = (relatedQuery.data || []).filter((v) => v.id !== videoId);
 
@@ -77,7 +80,23 @@ export default function WatchPage() {
                   video.isLiked ? 'text-brand font-bold' : 'hover:bg-elevated'
                 }`}
                 onClick={async () => {
-                  if (!user) return toast.warning('You must sign in to like');
+                  if (!user) {
+                    if (env.enableMock) {
+                      useAuthStore.getState().login(
+                        { id: 'u-demo', username: 'videohub', fullName: 'VideoHub Demo', avatar: 'https://i.pravatar.cc/160?img=12' },
+                        'demo-token',
+                        'demo-refresh',
+                      );
+                    } else {
+                      return toast.warning('You must sign in to like');
+                    }
+                  }
+                  if (likeIconRef.current) {
+                    gsap.timeline()
+                      .to(likeIconRef.current, { scale: 0.7, rotation: -20, duration: 0.1 })
+                      .to(likeIconRef.current, { scale: 1.35, rotation: 10, duration: 0.2, ease: 'back.out(3)' })
+                      .to(likeIconRef.current, { scale: 1, rotation: 0, duration: 0.15 });
+                  }
                   try {
                     await like.mutateAsync(video.id);
                   } catch {
@@ -85,7 +104,9 @@ export default function WatchPage() {
                   }
                 }}
               >
-                <ThumbsUp size={18} fill={video.isLiked ? 'currentColor' : 'none'} />
+                <span ref={likeIconRef} className="inline-flex">
+                  <ThumbsUp size={18} fill={video.isLiked ? 'currentColor' : 'none'} />
+                </span>
                 {formatViews(video.likes || 0)}
               </button>
               <span className="w-px bg-border" />

@@ -12,10 +12,12 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import gsap from 'gsap';
 import { toast } from 'sonner';
 import { useShorts, useToggleLike } from '@/hooks/useVideos';
 import { useAuthStore } from '@/store/authStore';
 import { usePlayerStore } from '@/store/playerStore';
+import { env } from '@/lib/env';
 import Avatar from '@/components/ui/Avatar';
 import SubscribeButton from '@/components/channel/SubscribeButton';
 import CommentSection from '@/components/video/CommentSection';
@@ -31,6 +33,8 @@ function ShortItem({
   onOpenComments,
 }) {
   const videoRef = useRef(null);
+  const likeBtnRef = useRef(null);
+  const heartRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showHeart, setShowHeart] = useState(false);
@@ -39,32 +43,37 @@ function ShortItem({
   const user = useAuthStore((s) => s.user);
   const playPromiseRef = useRef(null);
 
-  // Play / Pause when active state changes
+  // Play / Pause safely without null pointer exceptions
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
 
     if (isActive) {
       el.muted = isMuted;
-      playPromiseRef.current = el.play();
-      if (playPromiseRef.current !== undefined) {
-        playPromiseRef.current
+      const promise = el.play();
+      playPromiseRef.current = promise;
+      if (promise && typeof promise.then === 'function') {
+        promise
           .then(() => setIsPlaying(true))
           .catch(() => {
-            // Autoplay might be blocked unmuted; try muted fallback
             if (!el.muted) {
               el.muted = true;
-              el.play()
-                .then(() => setIsPlaying(true))
-                .catch(() => setIsPlaying(false));
+              const retryPromise = el.play();
+              playPromiseRef.current = retryPromise;
+              if (retryPromise && typeof retryPromise.then === 'function') {
+                retryPromise
+                  .then(() => setIsPlaying(true))
+                  .catch(() => setIsPlaying(false));
+              }
             } else {
               setIsPlaying(false);
             }
           });
       }
     } else {
-      if (playPromiseRef.current !== undefined) {
-        playPromiseRef.current.finally(() => {
+      const curPromise = playPromiseRef.current;
+      if (curPromise && typeof curPromise.finally === 'function') {
+        curPromise.finally(() => {
           el.pause();
           el.currentTime = 0;
           setIsPlaying(false);
@@ -109,9 +118,26 @@ function ShortItem({
   const handleLike = async (e) => {
     e?.stopPropagation();
     if (!user) {
-      toast.warning('Sign in to like shorts');
-      return;
+      if (env.enableMock) {
+        useAuthStore.getState().login(
+          { id: 'u-demo', username: 'videohub', fullName: 'VideoHub Demo', avatar: 'https://i.pravatar.cc/160?img=12' },
+          'demo-token',
+          'demo-refresh',
+        );
+      } else {
+        toast.warning('Sign in to like shorts');
+        return;
+      }
     }
+
+    // GSAP Button Pop Animation
+    if (likeBtnRef.current) {
+      gsap.timeline()
+        .to(likeBtnRef.current, { scale: 0.8, rotate: -20, duration: 0.1 })
+        .to(likeBtnRef.current, { scale: 1.3, rotate: 10, duration: 0.2, ease: 'back.out(3)' })
+        .to(likeBtnRef.current, { scale: 1, rotate: 0, duration: 0.15 });
+    }
+
     try {
       await likeMutation.mutateAsync(short.id);
     } catch {
@@ -122,7 +148,13 @@ function ShortItem({
   const handleDoubleClick = (e) => {
     e.stopPropagation();
     setShowHeart(true);
-    setTimeout(() => setShowHeart(false), 900);
+    if (heartRef.current) {
+      gsap.timeline()
+        .fromTo(heartRef.current, { scale: 0, opacity: 0, rotate: -20 }, { scale: 1.4, opacity: 1, rotate: 0, duration: 0.3, ease: 'back.out(2)' })
+        .to(heartRef.current, { scale: 2, opacity: 0, duration: 0.3, delay: 0.3, onComplete: () => setShowHeart(false) });
+    } else {
+      setTimeout(() => setShowHeart(false), 900);
+    }
     if (!short.isLiked) {
       handleLike();
     }
@@ -162,18 +194,15 @@ function ShortItem({
             className="h-full w-full object-cover"
           />
 
-          {/* Double Tap Heart Animation */}
+          {/* Double Tap Heart Animation with GSAP */}
           <AnimatePresence>
             {showHeart && (
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1.4, opacity: 0.95 }}
-                exit={{ scale: 2, opacity: 0 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
+              <div
+                ref={heartRef}
                 className="pointer-events-none absolute inset-0 flex items-center justify-center"
               >
-                <ThumbsUp size={90} className="fill-brand text-brand drop-shadow-lg" />
-              </motion.div>
+                <ThumbsUp size={90} className="fill-brand text-brand drop-shadow-2xl" />
+              </div>
             )}
           </AnimatePresence>
 
@@ -269,6 +298,7 @@ function ShortItem({
         <div className="absolute right-3 bottom-16 z-20 flex flex-col items-center gap-4 text-white">
           {/* Like Button */}
           <button
+            ref={likeBtnRef}
             type="button"
             onClick={handleLike}
             className="flex flex-col items-center gap-1 group"
@@ -433,7 +463,7 @@ export default function ShortsPage() {
       >
         {shorts.map((short, idx) => (
           <div
-            key={short.id}
+            key={`${short.id || short._id}-${idx}`}
             data-index={idx}
             ref={(el) => (itemRefs.current[idx] = el)}
             className="h-full w-full"

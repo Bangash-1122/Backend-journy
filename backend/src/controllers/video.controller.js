@@ -8,6 +8,12 @@ import {
     User
 } from "../models/user.model.js";
 import {
+    Like
+} from "../models/like.model.js";
+import {
+    Subscription
+} from "../models/subscription.model.js";
+import {
     ApiError
 } from "../utils/ApiError.js";
 import {
@@ -131,12 +137,10 @@ const publishAVideo = asyncHandler(async (req, res) => {
     if (!videoFileLocalPath) {
         throw new ApiError(400, "Video file is required");
     }
-    if (!thumbnailLocalPath) {
-        throw new ApiError(400, "Thumbnail is required");
-    }
 
     let videoFile;
     let thumbnail;
+    let thumbnailUrl = "";
 
     try {
         videoFile = await uploadOnCloudinary(videoFileLocalPath, {
@@ -146,13 +150,19 @@ const publishAVideo = asyncHandler(async (req, res) => {
             throw new ApiError(500, "Video file upload to Cloudinary failed");
         }
 
-        thumbnail = await uploadOnCloudinary(thumbnailLocalPath, {
-            resource_type: "image",
-        });
-        if (!thumbnail?.secure_url && !thumbnail?.url) {
-            // Clean up the already uploaded video if thumbnail upload fails
-            await deleteFromCloudinary(videoFile.secure_url || videoFile.url, "video");
-            throw new ApiError(500, "Thumbnail upload to Cloudinary failed");
+        if (thumbnailLocalPath) {
+            thumbnail = await uploadOnCloudinary(thumbnailLocalPath, {
+                resource_type: "image",
+            });
+            if (thumbnail?.secure_url || thumbnail?.url) {
+                thumbnailUrl = thumbnail.secure_url || thumbnail.url;
+            }
+        }
+
+        // If no thumbnail was uploaded, automatically use Cloudinary's auto-generated video poster jpg
+        if (!thumbnailUrl && (videoFile.secure_url || videoFile.url)) {
+            const rawUrl = videoFile.secure_url || videoFile.url;
+            thumbnailUrl = rawUrl.replace(/\.[a-zA-Z0-9]+$/, '.jpg');
         }
     } catch (err) {
         if (videoFile?.secure_url || videoFile?.url) {
@@ -182,7 +192,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
     const video = await Video.create({
         videoFile: videoDeliveryUrl,
-        thumbnail: thumbnail.secure_url || thumbnail.url,
+        thumbnail: thumbnailUrl,
         title: title.trim(),
         description: description.trim(),
         duration: Math.round(duration),
@@ -237,8 +247,31 @@ const getVideoById = asyncHandler(async (req, res) => {
         });
     }
 
+    const likesCount = await Like.countDocuments({ video: video._id });
+    let isLiked = false;
+    let isSubscribed = false;
+
+    if (req.user?._id) {
+        const [likeExists, subExists] = await Promise.all([
+            Like.exists({ video: video._id, likedBy: req.user._id }),
+            video.owner?._id ? Subscription.exists({ channel: video.owner._id, user: req.user._id }) : false,
+        ]);
+        isLiked = Boolean(likeExists);
+        isSubscribed = Boolean(subExists);
+    }
+
+    const videoData = {
+        ...video.toObject(),
+        likes: likesCount,
+        isLiked,
+        owner: video.owner ? {
+            ...video.owner.toObject(),
+            isSubscribed,
+        } : null,
+    };
+
     return res.status(200).json(
-        new ApiResponse(200, video, "Video fetched successfully")
+        new ApiResponse(200, videoData, "Video fetched successfully")
     );
 });
 

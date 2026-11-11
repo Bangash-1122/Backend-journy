@@ -151,9 +151,21 @@ export const tweets = [
   },
 ];
 
+const loadSavedUploads = () => {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    const raw = localStorage.getItem('videohub_user_uploads');
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+};
+
 export const db = {
   users: [...users],
-  videos: [...videos],
+  videos: [...loadSavedUploads(), ...videos],
   comments: [...comments],
   playlists: [...playlists],
   tweets: [...tweets],
